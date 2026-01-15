@@ -1,19 +1,31 @@
-# at-what-cost
+# At What Cost
 
-A mobile app empowering conscious consumers to hold corporations accountable for animal welfare, environmental, and labor practices.
+An iOS app that turns passive consumers into active advocates through AI-powered corporate accountability tracking and instant action generation.
 
-## Overview
-At What Cost helps users (18-34, conscious consumers) take quick, meaningful action against corporate violations through:
-- 📊 Corporate accountability scoring
-- ⚡ One-tap actions (emails, petitions, calls)
-- 📈 Impact tracking
-- 🔍 Brand transparency
+## What It Does
+
+At What Cost transforms scattered corporate accountability efforts into a coordinated, data-driven movement through two core features:
+
+### 🔍 AI Monitoring
+Autonomous agents continuously:
+- Scrape publicly available data about corporate animal welfare commitments
+- Track violations and broken promises in real-time
+- Generate risk scores (e.g., "Ahold Delhaize: 1/10 for silently delaying cage-free deadline")
+
+### ⚡ Instant Actions
+LLMs generate personalized advocacy tools:
+- Email templates tailored to current violations
+- Phone call scripts for investor relations and executives
+- Direct execution from the app (similar to 5Calls but for animal welfare)
+
+## Target Impact
+Empowers 18-34 year old conscious consumers to hold corporations accountable for animal welfare, environmental, and labor practices through coordinated, data-driven pressure campaigns.
 
 ## Tech Stack (Planned)
 - **Frontend**: React Native (iOS first)
-- **Backend**: [TBD - Node.js/Python]
-- **AI/ML**: [TBD - for content generation]
-- **Database**: [TBD]
+- **Backend**: Python/Node.js for agent orchestration
+- **AI/ML**: LLM for content generation, agents for data scraping
+- **Database**: PostgreSQL for company tracking
 
 ## Project Structure
 ```
@@ -25,18 +37,15 @@ at-what-cost/
 └── data/           # Sample data, company info
 ```
 
+## Core Features (MVP)
+- [ ] Autonomous tracking of top 50 food corporations
+- [ ] Real-time violation detection and scoring
+- [ ] One-tap email/call actions with AI scripts
+- [ ] Campaign coordination and impact tracking
+- [ ] Push notifications for urgent actions
+
 ## Getting Started
 [Coming soon - setup instructions]
 
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
-## Core Features (MVP)
-- [ ] Home screen with urgent actions
-- [ ] Brand search and scoring
-- [ ] Action templates (email/petition/call)
-- [ ] Progress tracking
-- [ ] Company database
-
-## Contact
-@lish9656 on Discord
