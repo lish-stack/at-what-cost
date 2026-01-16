@@ -1,0 +1,180 @@
+[
+
+{
+  "generated_at": "2025-12-23T16:00:00.000Z",
+  "source": {
+    "name": "Chanting for Chickens at Choice Hotels ",
+    "url": "https://thehumaneleague.org/article/choice-hotels-protest",
+    "published_at": "2025-12-23T15:30:08.845Z"
+  },
+  "campaign": {
+    "summary": "Activists gathered in downtown Portland using megaphones and cowbells to protest against the caging of millions of hens. The action aimed to raise awareness and pressure Choice Hotels to change their policies. The demonstration created a public spectacle to highlight animal confinement issues.",
+    "target": {
+      "name": "Choice Hotels",
+      "type": "company"
+    },
+    "tactic": "protest",
+    "cta": "Join the next protest and amplify the call to end the use of cage-confined eggs by Choice Hotels.",
+    "score": {
+      "value": 4,
+      "rationale": "The campaign addresses the urgent welfare issue of hens kept in cages and targets a major hotel chain to shift sourcing policies, creating potential widespread impact."
+    }
+  }
+},
+
+{
+  "generated_at": "2025-12-22T19:00:00.000Z",
+  "source": {
+    "name": "Radisson Protest in Brussels",
+    "url": "https://thehumaneleague.org/article/radisson-brussels-protest",
+    "published_at": "2025-12-22T18:26:24.554Z"
+  },
+  "campaign": {
+    "summary": "Over two days in Brussels, advocates confronted Radisson Hotel Group over their unmet commitments to prevent animal suffering. The sustained public pressure aimed to hold the company accountable and push for immediate changes.",
+    "target": {
+      "name": "Radisson Hotel Group",
+      "type": "company"
+    },
+    "tactic": "protest",
+    "cta": "Join the movement to demand Radisson Hotel Group end animal suffering now.",
+    "score": {
+      "value": 4,
+      "rationale": "The campaign targets urgent promises affecting animal welfare and employs direct public action to compel corporate accountability."
+    }
+  }
+},
+
+{
+  "generated_at": "2025-11-24T22:40:00.000Z",
+  "source": {
+    "name": "7-Eleven Cage-Free Progress",
+    "url": "https://thehumaneleague.org/article/7-eleven-cage-free-progress",
+    "published_at": "2025-11-24T22:23:06.231Z"
+  },
+  "campaign": {
+    "summary": "The campaign released 7-Eleven's first-ever progress report on cage-free hens, highlighting current conditions and creating accountability in the egg supply chain. This report provides transparency and encourages continued improvement towards cage-free sourcing.",
+    "target": {
+      "name": "7-Eleven",
+      "type": "company"
+    },
+    "tactic": "other",
+    "cta": "Support the move to cage-free eggs by urging 7-Eleven to meet and exceed their progress commitments.",
+    "score": {
+      "value": 4,
+      "rationale": "High urgency to improve hen welfare and transparency in a major retail chain's egg sourcing impacts millions of hens."
+    }
+  }
+},
+
+{
+  "generated_at": "2025-11-18T23:00:00.000Z",
+  "source": {
+    "name": "Pepsi ESG Report Update",
+    "url": "https://thehumaneleague.org/article/pepsi-esg-report-update",
+    "published_at": "2025-11-18T22:47:29.273Z"
+  },
+  "campaign": {
+    "summary": "PepsiCo has published an ESG report detailing its progress toward cage-free egg sourcing, marking a significant win for hen welfare worldwide. The update provides transparency and accountability on the company's commitment to ending the use of caged hens.",
+    "target": {
+      "name": "PepsiCo",
+      "type": "company"
+    },
+    "tactic": "other",
+    "cta": "Support the transition to cage-free eggs by urging PepsiCo to maintain and accelerate its commitments.",
+    "score": {
+      "value": 4,
+      "rationale": "The progress impacts millions of hens and reflects a major corporate commitment, making it an urgent and high-impact animal welfare achievement."
+    }
+  }
+},
+
+{
+  "generated_at": "2025-11-17T18:45:00.000Z",
+  "source": {
+    "name": "Subway 100% Cage-Free",
+    "url": "https://thehumaneleague.org/article/subway-100-cage-free",
+    "published_at": "2025-11-17T18:40:13.020Z"
+  },
+  "campaign": {
+    "summary": "The campaign successfully achieved Subway's commitment to using 100% cage-free eggs across all US and Canada locations. This change improves animal welfare by eliminating the use of eggs from caged hens.",
+    "target": {
+      "name": "Subway",
+      "type": "company"
+    },
+    "tactic": "other",
+    "cta": "Join the movement to promote cage-free policies by supporting similar campaigns for other companies.",
+    "score": {
+      "value": 4,
+      "rationale": "High impact on animal welfare by eliminating caged hens from a major food chain, with significant urgency for widespread industry adoption."
+    }
+  }
+},
+
+
+{
+  "generated_at": "2025-10-14T18:00:00.000Z",
+  "source": {
+    "name": "2025 Fair and Fowl Report",
+    "url": "https://thehumaneleague.org/article/2025-fair-and-fowl-report",
+    "published_at": "2025-10-14T17:37:08.100Z"
+  },
+  "campaign": {
+    "summary": "The Open Wing Alliance released the 2025 Fair and Fowl report to assess global companies' progress on cage-free egg commitments, aiming to increase transparency and accountability. This report encourages companies to improve their animal welfare standards through transitioning to cage-free egg sourcing.",
+    "target": {
+      "name": "Open Wing Alliance",
+      "type": "company"
+    },
+    "tactic": "report",
+    "cta": "Support the campaign by urging companies to commit to 100% cage-free egg sourcing to improve animal welfare.",
+    "score": {
+      "value": 4,
+      "rationale": "The campaign addresses a significant animal welfare issue with global reach, urging immediate corporate action to end cage confinement for laying hens."
+    }
+  }
+},
+
+{
+  "generated_at": "2025-10-03T01:50:00.000Z",
+  "source": {
+    "name": "Best Western Progress Updates",
+    "url": "https://thehumaneleague.org/article/best-western-progress-updates",
+    "published_at": "2025-10-03T01:22:57.314Z"
+  },
+  "campaign": {
+    "summary": "The campaign highlights Best Western's progress in animal welfare metrics regarding hens but emphasizes the need for further improvements beyond data reporting. It pushes for increased accountability and tangible welfare enhancements for hens.",
+    "target": {
+      "name": "Best Western",
+      "type": "company"
+    },
+    "tactic": "other",
+    "cta": "Join the campaign to urge Best Western to go beyond metrics and improve hen welfare substantially.",
+    "score": {
+      "value": 3,
+      "rationale": "Progress has been made but ongoing welfare concerns require continued attention and action."
+    }
+  }
+},
+
+{
+  "generated_at": "2025-09-17T19:00:00.000Z",
+  "source": {
+    "name": "Rwanda's Cage-Free Breakthrough",
+    "url": "https://thehumaneleague.org/article/rwandas-cage-free-breakthrough",
+    "published_at": "2025-09-17T18:56:33.599Z"
+  },
+  "campaign": {
+    "summary": "Marriott and Sheraton Kigali have committed to implementing cage-free egg sourcing, demonstrating leadership in animal welfare and setting a precedent for future hospitality operations in Rwanda. This initiative promotes humane treatment of laying hens and encourages industry-wide adoption of cage-free standards.",
+    "target": {
+      "name": "Marriott and Sheraton Kigali",
+      "type": "company"
+    },
+    "tactic": "other",
+    "cta": "Support cage-free initiatives by encouraging Marriott and Sheraton Kigali to expand their humane practices and inspire other hotels to follow their lead.",
+    "score": {
+      "value": 4,
+      "rationale": "The transition to cage-free systems in prominent hotels addresses significant animal welfare issues and can influence broader industry change, making it urgent and impactful."
+    }
+  }
+}
+
+]

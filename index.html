@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activist Hub</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            max-width: 375px;
+            margin: 0 auto;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .status-bar {
+            background: white;
+            padding: 8px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .header {
+            background: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            color: #7d1f5c;
+            font-size: 18px;
+        }
+
+        .logo span {
+            text-align: right;
+            font-size: 10px;
+            line-height: 1;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: #7d1f5c;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .header-icons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #333;
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        /* Home Page Styles */
+        .welcome {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .welcome h2 {
+            color: #7d1f5c;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .welcome p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .action-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .carousel-container {
+            position: relative;
+        }
+
+        .carousel-content {
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .carousel-item {
+            display: none;
+        }
+
+        .carousel-item.active {
+            display: block;
+        }
+
+        .carousel-dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ddd;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .dot.active {
+            background: #7d1f5c;
+        }
+
+        .action-header {
+            background: #7d1f5c;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .action-content h3 {
+            color: #7d1f5c;
+            font-size: 14px;
+            text-decoration: underline;
+            margin-bottom: 0;
+            line-height: 1.6;
+            display: inline;
+        }
+
+        .action-content p {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            display: inline;
+        }
+
+        .btn-primary {
+            background: #7d1f5c;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .tracker-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .tracker-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tracker-header h3 {
+            color: #333;
+            font-size: 16px;
+        }
+
+        .tracker-period {
+            display: flex;
+            gap: 10px;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 15px;
+        }
+
+        .tracker-period span {
+            padding: 4px 12px;
+            border-radius: 12px;
+        }
+
+        .tracker-period .active {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .tracker-item {
+            padding: 15px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .tracker-item:last-child {
+            border-bottom: none;
+        }
+
+        .tracker-item h4 {
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .tracker-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .tracker-stats {
+            display: flex;
+            gap: 15px;
+        }
+
+        .checkmark {
+            color: #4caf50;
+        }
+
+        /* Brands Page Styles */
+        .search-box {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #999;
+        }
+
+        .categories {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+        }
+
+        .categories::-webkit-scrollbar {
+            display: none;
+        }
+
+        .category-btn {
+            background: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .category-btn.active {
+            background: #7d1f5c;
+            color: white;
+        }
+
+        .sort-dropdown {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .sort-dropdown select {
+            border: none;
+            background: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            flex: 1;
+            text-align: right;
+        }
+
+        .brand-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-left: 4px solid #7d1f5c;
+        }
+
+        .brand-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .brand-name {
+            color: #7d1f5c;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        .brand-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 12px;
+        }
+
+        .rating-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 12px;
+        }
+
+        .rating-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .rating-label {
+            color: #888;
+        }
+
+        .rating-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .stars {
+            color: #ddd;
+        }
+
+        .brand-description {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+
+        .read-more {
+            color: #7d1f5c;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        /* Brand Detail Page Styles */
+        .back-button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 15px 20px;
+            color: #333;
+        }
+
+        .detail-header {
+            padding: 0 20px 20px;
+        }
+
+        .detail-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .detail-meta {
+            display: flex;
+            gap: 10px;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 15px;
+        }
+
+        .detail-rating-box {
+            background: white;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 15px;
+        }
+
+        .detail-overall {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .detail-ratings {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .detail-rating-item {
+            font-size: 12px;
+        }
+
+        .detail-rating-label {
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .detail-rating-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .action-link {
+            color: #7d1f5c;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .section-rating {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .section-rating .stars {
+            color: #ddd;
+        }
+
+        .section-rating .rating-num {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .section-content {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .nav-bar {
+            background: #7d1f5c;
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .nav-item.active {
+            color: white;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Home Page -->
+    <div class="page active" id="home-page">
+        <div class="status-bar">
+            <div>4:19</div>
+            <div>📶 📡 🔋</div>
+        </div>
+
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">📢</div>
+                <span>at<br>what<br>cost</span>
+            </div>
+            <div class="header-icons">
+                <button class="icon-btn">🔔</button>
+                <button class="icon-btn">👤</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="welcome">
+                <h2>Welcome back, Alisha.</h2>
+                <p>We've shortlisted a few actions:</p>
+            </div>
+
+            <div class="action-card">
+                <div class="action-header">📧 Email the company</div>
+                <div class="carousel-container">
+                    <div class="carousel-content">
+                        <div class="carousel-item active">
+                            <div class="action-content">
+                                <h3>Ahold Delhaize</h3>
+                                <p> (Food Lion, Hannaford, Giant Foods, Stop 'n Shop) silently delayed its commitment to be 100% cage-free by 2025. Write to let them know shoppers are not down with the continued confinement of millions of hens and pregnant pigs.</p>
+                            </div>
+                        </div>
+                        <div class="carousel-item">
+                            <div class="action-content">
+                                <h3>Tyson Foods</h3>
+                                <p> continues to resist implementing meaningful animal welfare standards despite consumer pressure. Help us demand transparency and humane treatment across their supply chain.</p>
+                            </div>
+                        </div>
+                        <div class="carousel-item">
+                            <div class="action-content">
+                                <h3>Walmart</h3>
+                                <p> has made promises about sustainable sourcing but enforcement remains weak. Join thousands calling for accountability in their commitment to end cruel confinement practices.</p>
+                            </div>
+                        </div>
+                        <div class="carousel-item">
+                            <div class="action-content">
+                                <h3>Kroger</h3>
+                                <p> pledged cage-free eggs by 2025 but recent reports show slow progress. Send a message that corporate commitments must be kept and animals deserve better treatment.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn-primary">Send pre-written email →</button>
+                    <div class="carousel-dots">
+                        <span class="dot active" data-index="0"></span>
+                        <span class="dot" data-index="1"></span>
+                        <span class="dot" data-index="2"></span>
+                        <span class="dot" data-index="3"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tracker-card">
+                <div class="tracker-header">
+                    <span style="font-size: 24px;">✓</span>
+                    <h3>Impact Tracker</h3>
+                </div>
+                <div class="tracker-period">
+                    <span class="active">This Week</span>
+                    <span>All Time</span>
+                </div>
+                <div class="tracker-item">
+                    <h4>23 public corporate commitments flipped or upgraded</h4>
+                    <div class="tracker-meta">
+                        <div class="tracker-stats">
+                            <span>👍 Up 12% from last month</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tracker-item">
+                    <div class="tracker-meta">
+                        <span><span class="checkmark">✓</span> 13 active</span>
+                        <span>⏳ 5 queued</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <nav class="nav-bar">
+            <a href="#" class="nav-item active" data-page="home">
+                <div class="nav-icon">🏠</div>
+                <div>Home</div>
+            </a>
+            <a href="#" class="nav-item" data-page="brands">
+                <div class="nav-icon">🔍</div>
+                <div>Brands</div>
+            </a>
+            <a href="#" class="nav-item" data-page="act">
+                <div class="nav-icon">📋</div>
+                <div>Act</div>
+            </a>
+            <a href="#" class="nav-item" data-page="give">
+                <div class="nav-icon">👥</div>
+                <div>Give</div>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Brands Page -->
+    <div class="page" id="brands-page">
+        <div class="status-bar">
+            <div>4:19</div>
+            <div>📶 📡 🔋</div>
+        </div>
+
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">📢</div>
+                <span>at<br>what<br>cost</span>
+            </div>
+            <div class="header-icons">
+                <button class="icon-btn">🔔</button>
+                <button class="icon-btn">👤</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="search-box">
+                🔍 Search all brands
+            </div>
+
+            <div class="categories">
+                <button class="category-btn active">ALL</button>
+                <button class="category-btn">Beauty & Wellness</button>
+                <button class="category-btn">Food & Drink</button>
+                <button class="category-btn">Grocery</button>
+                <button class="category-btn">Household</button>
+            </div>
+
+            <div class="sort-dropdown">
+                <span>Sort by:</span>
+                <select>
+                    <option>Relevance</option>
+                    <option>Rating: High to Low</option>
+                    <option>Rating: Low to High</option>
+                    <option>Recently Updated</option>
+                </select>
+            </div>
+
+            <div class="brand-card" data-brand="ahold-delhaize">
+                <div class="brand-header">
+                    <div class="brand-name">Ahold Delhaize</div>
+                </div>
+                <div class="brand-meta">
+                    <span>Grocery</span>
+                    <span>• Updated today</span>
+                </div>
+                <div class="rating-section">
+                    <div class="rating-item">
+                        <div class="rating-label">Overall Rating:</div>
+                        <div class="rating-value">
+                            <span class="stars">☆☆☆☆☆</span> 1/5
+                        </div>
+                    </div>
+                </div>
+                <div class="rating-section">
+                    <div class="rating-item">
+                        <div class="rating-label">Welfare:</div>
+                        <div class="rating-value">0/5</div>
+                    </div>
+                    <div class="rating-item">
+                        <div class="rating-label">Planet:</div>
+                        <div class="rating-value">1/5</div>
+                    </div>
+                    <div class="rating-item">
+                        <div class="rating-label">Trust:</div>
+                        <div class="rating-value">0/5</div>
+                    </div>
+                </div>
+                <div class="brand-description">
+                    Ahold Delhaize (Stop 'n Shop, Giant, Food Lion, Hannaford) scores poorly across all metrics due to systematic rollback of animal welfare commitments and lack of tr...
+                </div>
+                <div class="read-more">(Read more)</div>
+            </div>
+
+            <div class="brand-card">
+                <div class="brand-header">
+                    <div class="brand-name">Cal-Maine Foods</div>
+                </div>
+                <div class="brand-meta">
+                    <span>Food & Drink</span>
+                    <span>• Updated today</span>
+                </div>
+                <div class="rating-section">
+                    <div class="rating-item">
+                        <div class="rating-label">Overall Rating:</div>
+                        <div class="rating-value">
+                            <span class="stars">☆☆☆☆☆</span> 0/5
+                        </div>
+                    </div>
+                </div>
+                <div class="rating-section">
+                    <div class="rating-item">
+                        <div class="rating-label">Welfare:</div>
+                        <div class="rating-value">0/5</div>
+                    </div>
+                    <div class="rating-item">
+                        <div class="rating-label">Planet:</div>
+                        <div class="rating-value">1/5</div>
+                    </div>
+                    <div class="rating-item">
+                        <div class="rating-label">Trust:</div>
+                        <div class="rating-value">0/5</div>
+                    </div>
+                </div>
+                <div class="brand-description">
+                    Ahold Delhaize (Stop 'n Shop, Giant, Food Lion, Hannaford) scores poorly across all metrics due to systematic rollback of animal welfare commitments and lack of...
+                </div>
+                <div class="read-more">(Read more)</div>
+            </div>
+        </div>
+
+        <nav class="nav-bar">
+            <a href="#" class="nav-item" data-page="home">
+                <div class="nav-icon">🏠</div>
+                <div>Home</div>
+            </a>
+            <a href="#" class="nav-item active" data-page="brands">
+                <div class="nav-icon">🔍</div>
+                <div>Brands</div>
+            </a>
+            <a href="#" class="nav-item" data-page="act">
+                <div class="nav-icon">📋</div>
+                <div>Act</div>
+            </a>
+            <a href="#" class="nav-item" data-page="give">
+                <div class="nav-icon">👥</div>
+                <div>Give</div>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Brand Detail Page -->
+    <div class="page" id="brand-detail-page">
+        <div class="status-bar">
+            <div>4:19</div>
+            <div>📶 📡 🔋</div>
+        </div>
+
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">📢</div>
+                <span>at<br>what<br>cost</span>
+            </div>
+            <div class="header-icons">
+                <button class="icon-btn">🔔</button>
+                <button class="icon-btn">👤</button>
+            </div>
+        </div>
+
+        <button class="back-button" onclick="showPage('brands')">←</button>
+
+        <div class="content">
+            <div class="detail-header">
+                <h1 class="detail-title">Ahold Delhaize</h1>
+                <div class="detail-meta">
+                    <span>Grocery</span>
+                    <span>• Updated today</span>
+                </div>
+                <div class="detail-rating-box">
+                    <div class="detail-overall">
+                        Overall Rating: <span class="stars">☆☆☆☆☆</span> 1/5
+                    </div>
+                    <div class="detail-ratings">
+                        <div class="detail-rating-item">
+                            <div class="detail-rating-label">Welfare:</div>
+                            <div class="detail-rating-value">0/5</div>
+                        </div>
+                        <div class="detail-rating-item">
+                            <div class="detail-rating-label">Planet:</div>
+                            <div class="detail-rating-value">1/5</div>
+                        </div>
+                        <div class="detail-rating-item">
+                            <div class="detail-rating-label">Trust:</div>
+                            <div class="detail-rating-value">0/5</div>
+                        </div>
+                    </div>
+                    <div class="action-link">Open actions for this brand →</div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <h2 class="section-title">Summary</h2>
+                <div class="section-content">
+                    Ahold Delhaize (Stop 'n Shop, Giant, Food Lion, Hannaford) scores poorly across all metrics due to systematic rollback of animal welfare commitments and lack of transparency about their supply chain impacts.
+                </div>
+            </div>
+
+            <div class="section-card">
+                <h2 class="section-title">Welfare</h2>
+                <div class="section-rating">
+                    <span class="stars">☆☆☆☆☆</span>
+                    <span class="rating-num">0/5</span>
+                </div>
+                <div class="section-content">
+                    4.2 million hens remain in battery cages after Ahold abandoned their 2025 cage-free promise. Each bird gets less space than an iPad for their entire life. The company also delayed eliminating gestation crates for pigs, keeping pregnant sows in stalls where they cannot turn around for four months at a time. No meaningful welfare improvements have been implemented since 2020.
+                </div>
+            </div>
+
+            <div class="section-card">
+                <h2 class="section-title">Planet</h2>
+                <div class="section-rating">
+                    <span class="stars">★☆☆☆☆</span>
+                    <span class="rating-num">1/5</span>
+                </div>
+                <div class="section-content">
+                    Their intensive confinement suppliers generate 847 additional tons of CO2 monthly compared to higher-welfare systems. Concentrated animal feeding operations (CAFOs) in their supply chain pollute groundwater in 18 states. The company provides no data on water usage, emissions by facility, or manure management practices. They've eliminated previous environmental impact reports while increasing sourcing from factory farms.
+                </div>
+            </div>
+
+            <div class="section-card">
+                <h2 class="section-title">Trust</h2>
+                <div class="section-rating">
+                    <span class="stars">☆☆☆☆☆</span>
+                    <span class="rating-num">0/5</span>
+                </div>
+                <div class="section-content">
+                    Ahold quietly deleted their cage-free commitment from websites and reports without announcement. This follows broken promises on gestation crates (2022) and sustainable seafood (2023). They spend millions marketing "responsible sourcing" while systematically weakening standards. When questioned, they cite vague "supply chain challenges" that competitors have overcome.
+                </div>
+            </div>
+        </div>
+
+        <nav class="nav-bar">
+            <a href="#" class="nav-item" data-page="home">
+                <div class="nav-icon">🏠</div>
+                <div>Home</div>
+            </a>
+            <a href="#" class="nav-item" data-page="brands">
+                <div class="nav-icon">🔍</div>
+                <div>Brands</div>
+            </a>
+            <a href="#" class="nav-item" data-page="act">
+                <div class="nav-icon">📋</div>
+                <div>Act</div>
+            </a>
+            <a href="#" class="nav-item" data-page="give">
+                <div class="nav-icon">👥</div>
+                <div>Give</div>
+            </a>
+        </nav>
+    </div>
+
+<script>
+        // Global state
+        let campaignsData = [];
+        let currentBrand = null;
+
+        // Load campaigns data
+        async function loadCampaigns() {
+            try {
+                const response = await fetch('campaigns.json');
+                campaignsData = await response.json();
+                renderBrandsList();
+            } catch (error) {
+                console.error('Error loading campaigns:', error);
+                // Fallback to sample data if file not found
+                campaignsData = [
+                    { "generated_at": "2025-12-23T16:00:00.000Z", "source": { "name": "Chanting for Chickens at Choice Hotels ", "url": "https://thehumaneleague.org/article/choice-hotels-protest", "published_at": "2025-12-23T15:30:08.845Z" }, "campaign": { "summary": "Activists gathered in downtown Portland using megaphones and cowbells to protest against the caging of millions of hens. The action aimed to raise awareness and pressure Choice Hotels to change their policies. The demonstration created a public spectacle to highlight animal confinement issues.", "target": { "name": "Choice Hotels", "type": "company" }, "tactic": "protest", "cta": "Join the next protest and amplify the call to end the use of cage-confined eggs by Choice Hotels.", "score": { "value": 4, "rationale": "The campaign addresses the urgent welfare issue of hens kept in cages and targets a major hotel chain to shift sourcing policies, creating potential widespread impact." } } },
+                    { "generated_at": "2025-12-22T19:00:00.000Z", "source": { "name": "Radisson Protest in Brussels", "url": "https://thehumaneleague.org/article/radisson-brussels-protest", "published_at": "2025-12-22T18:26:24.554Z" }, "campaign": { "summary": "Over two days in Brussels, advocates confronted Radisson Hotel Group over their unmet commitments to prevent animal suffering. The sustained public pressure aimed to hold the company accountable and push for immediate changes.", "target": { "name": "Radisson Hotel Group", "type": "company" }, "tactic": "protest", "cta": "Join the movement to demand Radisson Hotel Group end animal suffering now.", "score": { "value": 4, "rationale": "The campaign targets urgent promises affecting animal welfare and employs direct public action to compel corporate accountability." } } }
+                ];
+                renderBrandsList();
+            }
+        }
+
+        // Calculate ratings based on campaign data
+        function calculateRatings(campaign) {
+            const score = campaign.campaign.score.value;
+            // Inverse relationship: higher urgency score = lower rating
+            const welfareRating = Math.max(0, 5 - score);
+            const planetRating = Math.min(2, welfareRating + 1);
+            const trustRating = welfareRating;
+            const overallRating = Math.round((welfareRating + planetRating + trustRating) / 3);
+            
+            return {
+                overall: overallRating,
+                welfare: welfareRating,
+                planet: planetRating,
+                trust: trustRating
+            };
+        }
+
+        // Get star display
+        function getStars(rating) {
+            const filled = '★'.repeat(rating);
+            const empty = '☆'.repeat(5 - rating);
+            return filled + empty;
+        }
+
+        // Get time since update
+        function getTimeSince(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffHours = Math.floor((now - date) / (1000 * 60 * 60));
+            
+            if (diffHours < 1) return 'Updated just now';
+            if (diffHours < 24) return 'Updated today';
+            if (diffHours < 48) return 'Updated yesterday';
+            const diffDays = Math.floor(diffHours / 24);
+            return `Updated ${diffDays} days ago`;
+        }
+
+        // Render brands list
+        function renderBrandsList() {
+            const brandsContainer = document.querySelector('#brands-page .content');
+            const existingCards = brandsContainer.querySelectorAll('.brand-card');
+            existingCards.forEach(card => card.remove());
+
+            campaignsData.forEach((campaign, index) => {
+                const ratings = calculateRatings(campaign);
+                const brandCard = createBrandCard(campaign, ratings, index);
+                brandsContainer.appendChild(brandCard);
+            });
+        }
+
+        // Create brand card element
+        function createBrandCard(campaign, ratings, index) {
+            const card = document.createElement('div');
+            card.className = 'brand-card';
+            card.dataset.brandIndex = index;
+            
+            const summary = campaign.campaign.summary;
+            const truncated = summary.length > 150 ? summary.substring(0, 150) + '...' : summary;
+            
+            card.innerHTML = `
+                <div class="brand-header">
+                    <div class="brand-name">${campaign.campaign.target.name}</div>
+                </div>
+                <div class="brand-meta">
+                    <span>${campaign.campaign.target.type}</span>
+                    <span>• ${getTimeSince(campaign.generated_at)}</span>
+                </div>
+                <div class="rating-section">
+                    <div class="rating-item">
+                        <div class="rating-label">Overall Rating:</div>
+                        <div class="rating-value">
+                            <span class="stars" style="color: #7d1f5c;">${getStars(ratings.overall)}</span> ${ratings.overall}/5
+                        </div>
+                    </div>
+                </div>
+                <div class="rating-section">
+                    <div class="rating-item">
+                        <div class="rating-label">Welfare:</div>
+                        <div class="rating-value">${ratings.welfare}/5</div>
+                    </div>
+                    <div class="rating-item">
+                        <div class="rating-label">Planet:</div>
+                        <div class="rating-value">${ratings.planet}/5</div>
+                    </div>
+                    <div class="rating-item">
+                        <div class="rating-label">Trust:</div>
+                        <div class="rating-value">${ratings.trust}/5</div>
+                    </div>
+                </div>
+                <div class="brand-description">
+                    ${truncated}
+                </div>
+                <div class="read-more">(Read more)</div>
+            `;
+            
+            card.addEventListener('click', () => {
+                currentBrand = index;
+                renderBrandDetail(campaign, ratings);
+                showPage('brand-detail');
+            });
+            
+            return card;
+        }
+
+        // Render brand detail page
+        function renderBrandDetail(campaign, ratings) {
+            const detailPage = document.getElementById('brand-detail-page');
+            const content = detailPage.querySelector('.content');
+            
+            content.innerHTML = `
+                <div class="detail-header">
+                    <h1 class="detail-title">${campaign.campaign.target.name}</h1>
+                    <div class="detail-meta">
+                        <span>${campaign.campaign.target.type}</span>
+                        <span>• ${getTimeSince(campaign.generated_at)}</span>
+                    </div>
+                    <div class="detail-rating-box">
+                        <div class="detail-overall">
+                            Overall Rating: <span class="stars">${getStars(ratings.overall)}</span> ${ratings.overall}/5
+                        </div>
+                        <div class="detail-ratings">
+                            <div class="detail-rating-item">
+                                <div class="detail-rating-label">Welfare:</div>
+                                <div class="detail-rating-value">${ratings.welfare}/5</div>
+                            </div>
+                            <div class="detail-rating-item">
+                                <div class="detail-rating-label">Planet:</div>
+                                <div class="detail-rating-value">${ratings.planet}/5</div>
+                            </div>
+                            <div class="detail-rating-item">
+                                <div class="detail-rating-label">Trust:</div>
+                                <div class="detail-rating-value">${ratings.trust}/5</div>
+                            </div>
+                        </div>
+                        <div class="action-link">${campaign.campaign.cta} →</div>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h2 class="section-title">Summary</h2>
+                    <div class="section-content">
+                        ${campaign.campaign.summary}
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h2 class="section-title">Campaign Details</h2>
+                    <div class="section-rating">
+                        <span class="stars">${getStars(ratings.welfare)}</span>
+                        <span class="rating-num">${ratings.welfare}/5</span>
+                    </div>
+                    <div class="section-content">
+                        <strong>Tactic:</strong> ${campaign.campaign.tactic}<br><br>
+                        <strong>Source:</strong> <a href="${campaign.source.url}" target="_blank" style="color: #7d1f5c;">${campaign.source.name}</a><br><br>
+                        ${campaign.campaign.score.rationale}
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h2 class="section-title">Take Action</h2>
+                    <div class="section-content">
+                        ${campaign.campaign.cta}
+                    </div>
+                    <button class="btn-primary" style="margin-top: 15px;" onclick="window.open('${campaign.source.url}', '_blank')">
+                        Learn More & Take Action →
+                    </button>
+                </div>
+            `;
+        }
+
+        // Carousel functionality
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.carousel-item');
+        const dots = document.querySelectorAll('.dot');
+
+        function showSlide(index) {
+            slides.forEach((slide, i) => {
+                slide.classList.toggle('active', i === index);
+            });
+            dots.forEach((dot, i) => {
+                dot.classList.toggle('active', i === index);
+            });
+        }
+
+        dots.forEach(dot => {
+            dot.addEventListener('click', function() {
+                currentSlide = parseInt(this.dataset.index);
+                showSlide(currentSlide);
+            });
+        });
+
+        // Swipe functionality
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const carouselContent = document.querySelector('.carousel-content');
+
+        if (carouselContent) {
+            carouselContent.addEventListener('touchstart', e => {
+                touchStartX = e.changedTouches[0].screenX;
+            });
+
+            carouselContent.addEventListener('touchend', e => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            });
+        }
+
+        function handleSwipe() {
+            if (touchEndX < touchStartX - 50 && currentSlide < slides.length - 1) {
+                currentSlide++;
+                showSlide(currentSlide);
+            }
+            if (touchEndX > touchStartX + 50 && currentSlide > 0) {
+                currentSlide--;
+                showSlide(currentSlide);
+            }
+        }
+
+        // Email button
+        document.querySelectorAll('.btn-primary').forEach(btn => {
+            btn.addEventListener('click', function() {
+                alert('Opening email template...');
+            });
+        });
+
+        // Navigation between pages
+        function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            const pageMap = {
+                'home': 'home-page',
+                'brands': 'brands-page',
+                'brand-detail': 'brand-detail-page',
+                'act': 'home-page',
+                'give': 'home-page'
+            };
+            
+            const pageId = pageMap[pageName] || 'home-page';
+            document.getElementById(pageId).classList.add('active');
+            
+            // Update all nav items across all pages
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.page === pageName) {
+                    item.classList.add('active');
+                }
+            });
+        }
+
+        // Add click handlers to all nav items
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const pageName = this.dataset.page;
+                showPage(pageName);
+            });
+        });
+
+        // Initialize
+        loadCampaigns();
+    </script>
