@@ -1,0 +1,12 @@
+{
+  "company": {
+    "name": "Costco",
+    "website": "https://costco.com",
+    "industry": "Retail"
+  },
+  "commitment_type": "cage_free_eggs",
+  "commitment_text": "100% cage-free by 2028",
+  "announced_date": "2021-01-01",
+  "deadline_date": "2028-01-01",
+  "public_statement_url": "https://example.com"
+}

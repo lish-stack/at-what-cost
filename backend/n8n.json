@@ -1,0 +1,52 @@
+{
+  "name": "AWC — Daily Deadline Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 8 * * *" }]
+        }
+      },
+      "name": "Every Day at 8am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/internal/process-deadlines",
+        "options": {}
+      },
+      "name": "Trigger Deadline Processor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.events_created }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "name": "Any Events Created?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    }
+  ],
+  "connections": {
+    "Every Day at 8am": {
+      "main": [[{ "node": "Trigger Deadline Processor", "type": "main", "index": 0 }]]
+    },
+    "Trigger Deadline Processor": {
+      "main": [[{ "node": "Any Events Created?", "type": "main", "index": 0 }]]
+    }
+  }
+}
