@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import re
 import logging
 import os
 from datetime import datetime, timezone
@@ -18,7 +19,6 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import requests
-from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="At What Cost — Scraping Pipeline")
 
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 INOREADER_WEBHOOK_SECRET = os.getenv("INOREADER_WEBHOOK_SECRET", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "claude-haiku-4-5-20241022")
@@ -46,183 +47,58 @@ RESULTS_FILE = REPO_ROOT / "data" / "webhook_results.json"
 FETCH_TIMEOUT = 15
 FETCH_USER_AGENT = "Mozilla/5.0 (compatible; AWCBot/1.0; +https://github.com/lish-stack/at-what-cost)"
 MAX_ARTICLE_LENGTH = 8000
+JINA_API_KEY = os.getenv("JINA_API_KEY", "")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
-# Domains known to require JavaScript rendering (SPAs, Next.js, etc.)
-JS_RENDERED_DOMAINS = [
-    "thehumaneleague.org",
-    "openwingalliance.org",
-    "chickenwatch.org",
-    "worldanimalprotection.org",
-    "thehumaneleague.org.uk",
-]
+try:
+    from supabase import create_client
+except ImportError:
+    create_client = None
 
-
-# --- Playwright Fallback for JS-rendered Pages ---
-
-def _is_js_rendered_domain(url: str) -> bool:
-    """Check if a URL belongs to a known JS-rendered domain."""
-    from urllib.parse import urlparse
-    domain = urlparse(url).netloc.lower()
-    return any(js_domain in domain for js_domain in JS_RENDERED_DOMAINS)
+def _get_supabase():
+    if not create_client or not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        return None
+    return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 
-def fetch_article_text_js(url: str) -> Tuple[Optional[str], dict]:
-    """Fetch article text from a JS-rendered page using Playwright.
-
-    Falls back to None if Playwright is not installed.
-    """
-    metadata = {
-        "url": url,
-        "status_code": None,
-        "extraction_method": "playwright",
-        "content_length": 0,
-        "truncated": False,
-        "error": None,
-    }
-
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        metadata["error"] = "Playwright not installed — run: pip install playwright && playwright install chromium"
-        return None, metadata
-
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page(user_agent=FETCH_USER_AGENT)
-            page.goto(url, timeout=30000)
-
-            # Wait for content to render
-            try:
-                page.wait_for_selector("article, main, .content, .post-content", timeout=10000)
-            except Exception:
-                pass  # Proceed even if selector not found
-
-            html = page.content()
-            browser.close()
-
-        soup = BeautifulSoup(html, "html.parser")
-
-        # Remove noise elements
-        for tag in soup.find_all(["nav", "footer", "aside", "header", "script", "style", "noscript"]):
-            tag.decompose()
-
-        # Same cascade extraction as the non-JS version
-        text = ""
-        article_el = soup.find("article")
-        if article_el:
-            text = article_el.get_text(separator=" ", strip=True)
-            metadata["extraction_method"] = "playwright:article_tag"
-        else:
-            for selector in ["div.article-body", "div.post-content", "div.entry-content", "main", "[role=main]"]:
-                el = soup.select_one(selector)
-                if el:
-                    text = el.get_text(separator=" ", strip=True)
-                    metadata["extraction_method"] = f"playwright:selector:{selector}"
-                    break
-            else:
-                body = soup.find("body")
-                text = body.get_text(separator=" ", strip=True) if body else ""
-                metadata["extraction_method"] = "playwright:body_fallback"
-
-        if len(text) > MAX_ARTICLE_LENGTH:
-            text = text[:MAX_ARTICLE_LENGTH]
-            metadata["truncated"] = True
-
-        metadata["content_length"] = len(text)
-        metadata["status_code"] = 200
-        if not text:
-            metadata["error"] = "Playwright rendered page but extracted no text"
-        return text if text else None, metadata
-
-    except Exception as e:
-        metadata["error"] = f"Playwright error: {str(e)[:200]}"
-        return None, metadata
-
-
-# --- Page Fetcher ---
+# --- Jina AI Article Fetcher ---
 
 def fetch_article_text(url: str) -> Tuple[Optional[str], dict]:
-    """Fetch the full page at a URL and extract the article body text.
-
-    Returns (article_text, metadata). article_text is None on failure.
+    """
+    Fetch full article via Jina AI Reader (r.jina.ai/{url}).
+    Handles JS-rendered pages natively. Same key used by Open Paws.
     """
     metadata = {
-        "url": url,
-        "status_code": None,
-        "extraction_method": None,
-        "content_length": 0,
-        "truncated": False,
-        "error": None,
+        "url": url, "status_code": None, "extraction_method": "jina_ai",
+        "content_length": 0, "truncated": False, "error": None,
     }
-
+    jina_url = f"https://r.jina.ai/{url}"
+    headers = {"User-Agent": FETCH_USER_AGENT}
+    if JINA_API_KEY:
+        headers["Authorization"] = f"Bearer {JINA_API_KEY}"
     try:
-        resp = requests.get(
-            url,
-            timeout=FETCH_TIMEOUT,
-            headers={"User-Agent": FETCH_USER_AGENT},
-            allow_redirects=True,
-        )
+        resp = requests.get(jina_url, headers=headers, timeout=FETCH_TIMEOUT)
         resp.raise_for_status()
         metadata["status_code"] = resp.status_code
-
-        content_type = resp.headers.get("Content-Type", "")
-        if "html" not in content_type.lower():
-            metadata["error"] = f"Non-HTML content: {content_type}"
-            return None, metadata
-
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        # Remove noise elements
-        for tag in soup.find_all(["nav", "footer", "aside", "header", "script", "style", "noscript"]):
-            tag.decompose()
-
-        # Cascade extraction: article tag -> common containers -> body fallback
-        text = ""
-        article_el = soup.find("article")
-        if article_el:
-            text = article_el.get_text(separator=" ", strip=True)
-            metadata["extraction_method"] = "article_tag"
-        else:
-            for selector in ["div.article-body", "div.post-content", "div.entry-content", "main", "[role=main]"]:
-                el = soup.select_one(selector)
-                if el:
-                    text = el.get_text(separator=" ", strip=True)
-                    metadata["extraction_method"] = f"selector:{selector}"
-                    break
-            else:
-                body = soup.find("body")
-                text = body.get_text(separator=" ", strip=True) if body else ""
-                metadata["extraction_method"] = "body_fallback"
-
+        text = resp.text.strip()
         if len(text) > MAX_ARTICLE_LENGTH:
             text = text[:MAX_ARTICLE_LENGTH]
             metadata["truncated"] = True
-
         metadata["content_length"] = len(text)
         if not text:
-            metadata["error"] = "Empty body (page may require JavaScript rendering)"
-            # Playwright fallback for JS-rendered pages
-            if _is_js_rendered_domain(url):
-                logger.info(f"Attempting Playwright fallback for JS-rendered page: {url}")
-                return fetch_article_text_js(url)
-        return text if text else None, metadata
-
+            metadata["error"] = "Jina returned empty content"
+            return None, metadata
+        return text, metadata
     except requests.Timeout:
-        metadata["error"] = "Request timed out"
-        return None, metadata
-    except requests.ConnectionError as e:
-        metadata["error"] = f"Connection failed: {str(e)[:100]}"
+        metadata["error"] = "Jina timed out"
         return None, metadata
     except requests.HTTPError as e:
-        metadata["status_code"] = e.response.status_code if e.response else None
-        status = metadata["status_code"] or "error"
-        metadata["error"] = f"HTTP {status}"
+        metadata["error"] = f"Jina HTTP {e.response.status_code if e.response else 'err'}"
         return None, metadata
     except Exception as e:
         metadata["error"] = f"Unexpected: {str(e)[:100]}"
         return None, metadata
-
 
 # --- LLM Structured Extraction ---
 
@@ -323,27 +199,36 @@ def evaluate_relevance(
     categories: Optional[List[str]] = None,
     full_article_text: Optional[str] = None,
 ) -> dict:
-    if anthropic is None or not ANTHROPIC_API_KEY:
-        logger.warning("No ANTHROPIC_API_KEY — returning fallback result")
+    if not OPENROUTER_API_KEY:
+        logger.warning("No OPENROUTER_API_KEY — returning fallback result")
         return _fallback_result()
 
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     user_prompt = build_user_prompt(title, content, feed_title, categories or [], full_article_text)
 
     try:
-        message = client.messages.create(
-            model=LLM_MODEL,
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": LLM_MODEL,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "max_tokens": 1024,
+            },
+            timeout=30,
         )
-        raw_text = message.content[0].text.strip()
+        response.raise_for_status()
+        raw_text = response.json()["choices"][0]["message"]["content"].strip()
         if raw_text.startswith("```"):
             raw_text = raw_text.split("\n", 1)[1]
-            if raw_text.endswith("```"):
-                raw_text = raw_text[: raw_text.rfind("```")]
-        result = json.loads(raw_text)
-        return _validate_result(result)
+        if raw_text.endswith("```"):
+            raw_text = raw_text[:raw_text.rfind("```")]
+        return _validate_result(json.loads(raw_text))
     except (json.JSONDecodeError, KeyError, IndexError) as exc:
         logger.error(f"LLM evaluation failed: {exc}")
         return _fallback_result()
@@ -386,12 +271,65 @@ def _load_results() -> list:
     return []
 
 
-def _save_result(entry: dict) -> None:
-    RESULTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    results = _load_results()
-    results.append(entry)
-    RESULTS_FILE.write_text(json.dumps(results, indent=2, default=str))
+def _store_to_supabase(supabase, result: dict, source_url: str) -> None:
+    try:
+        cd = result.get("company")
+        cm = result.get("commitment")
+        if not cd or not cm:
+            logger.info("No company/commitment extracted - skipping write")
+            return
+        # Upsert company
+        ex = supabase.table("companies").select("id").eq("name", cd["name"]).execute()
+        company_id = ex.data[0]["id"] if ex.data else \
+            supabase.table("companies").insert({
+                "name": cd.get("name"), "website": cd.get("website"), "industry": cd.get("industry"),
+            }).execute().data[0]["id"]
+        # Insert commitment
+        commitment_id = supabase.table("commitments").insert({
+            "company_id": company_id,
+            "commitment_type": cm.get("commitment_type", "other"),
+            "commitment_text": cm.get("commitment_text"),
+            "announced_date": cm.get("announced_date"),
+            "deadline_date": cm.get("deadline_date"),
+            "current_status": cm.get("current_status", "unknown"),
+            "public_statement_url": source_url,
+        }).execute().data[0]["id"]
+        # Anchor deadline event
+        if cm.get("deadline_date"):
+            supabase.table("compliance_events").insert({
+                "commitment_id": commitment_id, "event_type": "deadline",
+                "event_date": cm["deadline_date"],
+                "status": cm.get("current_status", "unknown"),
+            }).execute()
+        # Evidence
+        ev = result.get("evidence", {})
+        if ev:
+            supabase.table("evidence").insert({
+                "commitment_id": commitment_id, "source_url": source_url,
+                "source_type": ev.get("source_type", "news"), "summary": ev.get("summary"),
+            }).execute()
+        # Decision makers
+        for dm in result.get("decision_makers", []):
+            supabase.table("decision_makers").insert({
+                "company_id": company_id, "name": dm.get("name"),
+                "role": dm.get("role"), "contact_url": dm.get("contact_url"),
+            }).execute()
+        logger.info(f"Stored to Supabase: {cd['name']}, commitment={commitment_id}")
+    except Exception as e:
+        logger.error(f"Supabase write failed: {e}")
 
+
+def _save_result(entry: dict) -> None:
+    supabase = _get_supabase()
+    if supabase:
+        _store_to_supabase(supabase, entry, entry.get("link", ""))
+    else:
+        # Dev fallback - local JSON if Supabase not configured
+        RESULTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        results = _load_results()
+        results.append(entry)
+        RESULTS_FILE.write_text(json.dumps(results, indent=2, default=str))
+        logger.info("Stored to local JSON (Supabase not configured)")
 
 # --- Schemas ---
 
@@ -443,9 +381,7 @@ def _process_article(title: str, link: str, content: Optional[str], feed_title: 
     # Step 1: Clean the webhook snippet (fallback if page fetch fails)
     clean_content = None
     if content:
-        clean_content = BeautifulSoup(content, "html.parser").get_text(
-            separator=" ", strip=True
-        )
+        clean_content = re.sub(r"<[^>]+>", " ", content).strip()
 
     # Step 2: Fetch the full article text from the link
     full_article_text = None

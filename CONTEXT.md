@@ -264,9 +264,13 @@ App.jsx
 - n8n daily cron wired to deadline processor
 - Bug fixes: 404 handling, lifecycle deduplication, compliant status respected
 - RSS webhook pipeline (Inoreader → Claude Haiku → JSON)
+- Supabase schema + RLS
+- Backend API (FastAPI + Supabase)
+- Scraping pipeline (Inoreader → Jina → OpenRouter → Supabase)
+
 
 ### In Progress 🔧
-- Migrate from raw Postgres to Supabase (DB + Auth + RLS)
+- Wire Inoreader webhooks to hit /webhook/inoreader
 - Frontend wired to live API
 - Org auth layer (login, roles, session)
 
@@ -299,7 +303,7 @@ App.jsx
 ### In Scope
 - Public commitment tracking + company profiles
 - Org-authenticated deep dossiers (via Open Paws)
-- Scraping pipeline (Inoreader + Claude)
+- Scraping pipeline (Inoreader + OpenRouter)
 - Time-based triggers (background, deprioritized)
 - Individual mobilization via scripts when no campaign exists
 - Positive reinforcement for compliant companies

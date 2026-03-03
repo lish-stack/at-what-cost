@@ -1,32 +1,62 @@
-# backend/app/main.py
+"""
+backend/app/main.py
 
-from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
+FastAPI app — Supabase client replaces SQLAlchemy ORM.
+- Public endpoints use service-role client (reads public tables)
+- Org endpoints use user-scoped client (RLS enforced)
+- Ingestion writes use service-role client
+"""
+
 from datetime import date
-from .db import SessionLocal
-from . import models
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException, Header, Depends
+from supabase import Client
+
+from .db import get_db, get_user_db
 from .schemas import CommitmentCreate, ComplianceEventCreate, EvidenceCreate
 
 app = FastAPI()
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# ─── Auth Helpers ───────────────────────────────────────────
+
+def require_jwt(authorization: Optional[str] = Header(None)) -> str:
+    """Extract and validate Bearer token from Authorization header."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    return authorization.split(" ", 1)[1]
 
 
-# ─── Shared Helpers ────────────────────────────────────────────────────────────
+def require_org(authorization: Optional[str] = Header(None)) -> tuple[str, Client]:
+    """
+    Validates the user is authenticated as an org.
+    Returns (jwt, user_scoped_db).
+    """
+    jwt = require_jwt(authorization)
+    db = get_user_db(jwt)
 
-def compute_days_remaining(deadline_date):
+    user = db.auth.get_user(jwt)
+    if not user or not user.user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    profile = db.table("profiles").select("role").eq("id", user.user.id).single().execute()
+    if not profile.data or profile.data.get("role") != "org":
+        raise HTTPException(status_code=403, detail="Org account required")
+
+    return jwt, db
+
+
+# ─── Shared Helpers ─────────────────────────────────────────
+
+def compute_days_remaining(deadline_date: Optional[str]) -> Optional[int]:
     if not deadline_date:
         return None
-    return (deadline_date - date.today()).days
+    deadline = date.fromisoformat(deadline_date)
+    return (deadline - date.today()).days
 
 
-def derive_lifecycle_phase(days_remaining: int | None, current_status: str) -> str:
+def derive_lifecycle_phase(days_remaining: Optional[int], current_status: str) -> str:
     if current_status == "compliant":
         return "compliant"
     if days_remaining is None:
@@ -38,229 +68,301 @@ def derive_lifecycle_phase(days_remaining: int | None, current_status: str) -> s
     return "overdue"
 
 
-def serialize_commitment(c, include_events=False):
-    days_remaining = compute_days_remaining(c.deadline_date)
-    lifecycle_phase = derive_lifecycle_phase(days_remaining, c.current_status)
+def serialize_commitment(c: dict, include_events: bool = False) -> dict:
+    days_remaining = compute_days_remaining(c.get("deadline_date"))
+    lifecycle_phase = derive_lifecycle_phase(days_remaining, c.get("current_status", "unknown"))
 
     result = {
-        "id": c.id,
-        "company": {
-            "name": c.company.name,
-            "website": c.company.website,
-            "industry": c.company.industry,
-        },
-        "commitment_type": c.commitment_type,
-        "commitment_text": c.commitment_text,
-        "announced_date": c.announced_date,
-        "deadline_date": c.deadline_date,
-        "public_statement_url": c.public_statement_url,
-        "current_status": c.current_status,
+        "id": c["id"],
+        "company": c.get("companies"),  # joined from Supabase select
+        "commitment_type": c.get("commitment_type"),
+        "commitment_text": c.get("commitment_text"),
+        "announced_date": c.get("announced_date"),
+        "deadline_date": c.get("deadline_date"),
+        "public_statement_url": c.get("public_statement_url"),
+        "current_status": c.get("current_status"),
         "days_remaining": days_remaining,
         "lifecycle_phase": lifecycle_phase,
     }
 
     if include_events:
-        result["compliance_events"] = [
-            {
-                "id": e.id,
-                "event_type": e.event_type,
-                "event_date": e.event_date,
-                "status": e.status,
-                "created_at": e.created_at,
-            }
-            for e in c.events
-        ]
-        result["evidence"] = [
-            {
-                "id": ev.id,
-                "source_url": ev.source_url,
-                "source_type": ev.source_type,
-                "summary": ev.summary,
-                "created_at": ev.created_at,
-            }
-            for ev in c.evidence_items
-        ]
+        result["compliance_events"] = c.get("compliance_events", [])
+        result["evidence"] = c.get("evidence", [])
 
     return result
 
 
-# ─── Commitments ───────────────────────────────────────────────────────────────
+# ─── Public: Commitments ────────────────────────────────────
 
 @app.get("/commitments")
-def list_commitments(db: Session = Depends(get_db)):
-    commitments = db.query(models.Commitment).all()
-    return [serialize_commitment(c) for c in commitments]
+def list_commitments():
+    db = get_db()
+    res = db.table("commitments").select("*, companies(name, website, industry)").execute()
+    return [serialize_commitment(c) for c in res.data]
 
 
 @app.get("/commitments/{commitment_id}")
-def get_commitment(commitment_id: int, db: Session = Depends(get_db)):
-    commitment = db.query(models.Commitment).filter(models.Commitment.id == commitment_id).first()
-    if not commitment:
+def get_commitment(commitment_id: str):
+    db = get_db()
+    res = (
+        db.table("commitments")
+        .select("*, companies(name, website, industry), compliance_events(*), evidence(*)")
+        .eq("id", commitment_id)
+        .single()
+        .execute()
+    )
+    if not res.data:
         raise HTTPException(status_code=404, detail="Commitment not found")
-    return serialize_commitment(commitment, include_events=True)
+    return serialize_commitment(res.data, include_events=True)
 
 
 @app.post("/commitments", status_code=201)
-def create_commitment(payload: CommitmentCreate, db: Session = Depends(get_db)):
-    # Upsert company by name (non-invasive: don't create duplicates)
-    company = db.query(models.Company).filter(models.Company.name == payload.company.name).first()
-    if not company:
-        company = models.Company(
-            name=payload.company.name,
-            website=payload.company.website,
-            industry=payload.company.industry,
-        )
-        db.add(company)
-        db.flush()  # get company.id without committing
+def create_commitment(payload: CommitmentCreate):
+    db = get_db()
+
+    # Upsert company by name
+    existing = db.table("companies").select("id").eq("name", payload.company.name).execute()
+    if existing.data:
+        company_id = existing.data[0]["id"]
+    else:
+        company_res = db.table("companies").insert({
+            "name": payload.company.name,
+            "website": payload.company.website,
+            "industry": payload.company.industry,
+        }).execute()
+        company_id = company_res.data[0]["id"]
 
     # Create commitment
-    commitment = models.Commitment(
-        company_id=company.id,
-        commitment_type=payload.commitment_type,
-        commitment_text=payload.commitment_text,
-        announced_date=payload.announced_date,
-        deadline_date=payload.deadline_date,
-        public_statement_url=payload.public_statement_url,
-        current_status="unknown",
-    )
-    db.add(commitment)
-    db.flush()
+    commitment_res = db.table("commitments").insert({
+        "company_id": company_id,
+        "commitment_type": payload.commitment_type,
+        "commitment_text": payload.commitment_text,
+        "announced_date": payload.announced_date.isoformat() if payload.announced_date else None,
+        "deadline_date": payload.deadline_date.isoformat() if payload.deadline_date else None,
+        "public_statement_url": payload.public_statement_url,
+        "current_status": "unknown",
+    }).execute()
+    commitment_id = commitment_res.data[0]["id"]
 
-    # Auto-anchor: create the initial deadline event to seed the lifecycle
-    anchor_event = models.ComplianceEvent(
-        commitment_id=commitment.id,
-        event_type="deadline",
-        event_date=payload.deadline_date,
-        status="unknown",
-    )
-    db.add(anchor_event)
-    db.commit()
+    # Anchor: seed the deadline event to start the lifecycle
+    db.table("compliance_events").insert({
+        "commitment_id": commitment_id,
+        "event_type": "deadline",
+        "event_date": payload.deadline_date.isoformat(),
+        "status": "unknown",
+    }).execute()
 
     return {
-        "commitment_id": commitment.id,
-        "company_id": company.id,
-        "message": "Commitment created and lifecycle anchored."
+        "commitment_id": commitment_id,
+        "company_id": company_id,
+        "message": "Commitment created and lifecycle anchored.",
     }
 
 
-# ─── Compliance Events ─────────────────────────────────────────────────────────
+# ─── Public: Compliance Events ──────────────────────────────
 
 @app.post("/commitments/{commitment_id}/events", status_code=201)
-def add_compliance_event(
-    commitment_id: int,
-    payload: ComplianceEventCreate,
-    db: Session = Depends(get_db)
-):
-    commitment = db.query(models.Commitment).filter(models.Commitment.id == commitment_id).first()
-    if not commitment:
+def add_compliance_event(commitment_id: str, payload: ComplianceEventCreate):
+    db = get_db()
+
+    existing = db.table("commitments").select("id, current_status").eq("id", commitment_id).single().execute()
+    if not existing.data:
         raise HTTPException(status_code=404, detail="Commitment not found")
 
-    event = models.ComplianceEvent(
-        commitment_id=commitment.id,
-        event_type=payload.event_type,
-        event_date=payload.event_date,
-        status=payload.status,
-    )
-    db.add(event)
+    event_res = db.table("compliance_events").insert({
+        "commitment_id": commitment_id,
+        "event_type": payload.event_type,
+        "event_date": payload.event_date.isoformat(),
+        "status": payload.status,
+    }).execute()
 
     if payload.update_commitment_status:
-        commitment.current_status = payload.status
-
-    db.commit()
+        db.table("commitments").update({"current_status": payload.status}).eq("id", commitment_id).execute()
 
     return {
-        "event_id": event.id,
-        "commitment_id": commitment.id,
+        "event_id": event_res.data[0]["id"],
+        "commitment_id": commitment_id,
         "updated_commitment_status": payload.update_commitment_status,
     }
 
 
-# ─── Evidence ──────────────────────────────────────────────────────────────────
+# ─── Public: Evidence ───────────────────────────────────────
 
 @app.post("/commitments/{commitment_id}/evidence", status_code=201)
-def add_evidence(
-    commitment_id: int,
-    payload: EvidenceCreate,
-    db: Session = Depends(get_db)
-):
-    commitment = db.query(models.Commitment).filter(models.Commitment.id == commitment_id).first()
-    if not commitment:
+def add_evidence(commitment_id: str, payload: EvidenceCreate):
+    db = get_db()
+
+    existing = db.table("commitments").select("id").eq("id", commitment_id).single().execute()
+    if not existing.data:
         raise HTTPException(status_code=404, detail="Commitment not found")
 
-    evidence = models.Evidence(
-        commitment_id=commitment.id,
-        source_url=payload.source_url,
-        source_type=payload.source_type,
-        summary=payload.summary,
-    )
-    db.add(evidence)
-    db.commit()
+    evidence_res = db.table("evidence").insert({
+        "commitment_id": commitment_id,
+        "source_url": payload.source_url,
+        "source_type": payload.source_type,
+        "summary": payload.summary,
+    }).execute()
 
     return {
-        "evidence_id": evidence.id,
-        "commitment_id": commitment.id,
+        "evidence_id": evidence_res.data[0]["id"],
+        "commitment_id": commitment_id,
     }
 
 
-# ─── Automation Trigger (called by n8n on a daily cron) ───────────────────────
+# ─── Org: Saved Companies ───────────────────────────────────
+
+@app.get("/org/saved-companies")
+def get_saved_companies(authorization: Optional[str] = Header(None)):
+    jwt, db = require_org(authorization)
+    user = db.auth.get_user(jwt).user
+
+    res = (
+        db.table("org_saved_companies")
+        .select("saved_at, companies(*, commitments(*))")
+        .eq("org_id", user.id)
+        .execute()
+    )
+    return res.data
+
+
+@app.post("/org/saved-companies/{company_id}", status_code=201)
+def save_company(company_id: str, authorization: Optional[str] = Header(None)):
+    """
+    Save a company to the org's list.
+    Triggers Open Paws OSINT report generation via n8n webhook.
+    """
+    jwt, db = require_org(authorization)
+    user = db.auth.get_user(jwt).user
+
+    # Save the company
+    db.table("org_saved_companies").insert({
+        "org_id": user.id,
+        "company_id": company_id,
+    }).execute()
+
+    # Trigger Open Paws via n8n webhook (non-blocking)
+    _trigger_open_paws(company_id, user.id)
+
+    return {"message": "Company saved. OSINT report generation started."}
+
+
+@app.delete("/org/saved-companies/{company_id}", status_code=204)
+def unsave_company(company_id: str, authorization: Optional[str] = Header(None)):
+    jwt, db = require_org(authorization)
+    user = db.auth.get_user(jwt).user
+
+    db.table("org_saved_companies").delete().eq("org_id", user.id).eq("company_id", company_id).execute()
+    return
+
+
+# ─── Org: Company Reports (OSINT dossier) ───────────────────
+
+@app.get("/org/companies/{company_id}/report")
+def get_company_report(company_id: str, authorization: Optional[str] = Header(None)):
+    """Returns the Open Paws OSINT report for this company (org only)."""
+    jwt, db = require_org(authorization)
+    user = db.auth.get_user(jwt).user
+
+    res = (
+        db.table("company_reports")
+        .select("*")
+        .eq("company_id", company_id)
+        .eq("org_id", user.id)
+        .order("generated_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="No report found. Save this company to trigger generation.")
+
+    return res.data[0]
+
+
+# ─── Org: Notes ─────────────────────────────────────────────
+
+@app.get("/org/companies/{company_id}/notes")
+def get_notes(company_id: str, authorization: Optional[str] = Header(None)):
+    jwt, db = require_org(authorization)
+    user = db.auth.get_user(jwt).user
+
+    res = (
+        db.table("org_company_notes")
+        .select("*")
+        .eq("org_id", user.id)
+        .eq("company_id", company_id)
+        .execute()
+    )
+    return res.data[0] if res.data else {}
+
+
+@app.put("/org/companies/{company_id}/notes", status_code=200)
+def upsert_notes(company_id: str, notes: dict, authorization: Optional[str] = Header(None)):
+    jwt, db = require_org(authorization)
+    user = db.auth.get_user(jwt).user
+
+    db.table("org_company_notes").upsert({
+        "org_id": user.id,
+        "company_id": company_id,
+        "notes": notes.get("notes"),
+        "tags": notes.get("tags", []),
+        "updated_at": date.today().isoformat(),
+    }).execute()
+
+    return {"message": "Notes saved."}
+
+
+# ─── Internal: Deadline Processor (n8n daily cron) ──────────
 
 @app.post("/internal/process-deadlines")
-def process_deadlines(db: Session = Depends(get_db)):
+def process_deadlines():
     """
-    Called daily by n8n. Scans all commitments and auto-creates
-    lifecycle events for overdue and at-risk deadlines.
-    Returns a summary of what was processed.
+    Called daily by n8n. Scans all non-compliant commitments and
+    auto-creates lifecycle events for overdue and at-risk deadlines.
     """
+    db = get_db()
     today = date.today()
-    commitments = db.query(models.Commitment).all()
+
+    res = db.table("commitments").select("*, compliance_events(event_type)").neq("current_status", "compliant").execute()
+    commitments = res.data or []
 
     created_events = []
     skipped = []
 
     for c in commitments:
-        if not c.deadline_date:
+        if not c.get("deadline_date"):
             continue
-        if c.current_status == "compliant":
-            continue  # already resolved, skip
 
-        days_remaining = (c.deadline_date - today).days
-        existing_types = {e.event_type for e in c.events}
+        days_remaining = (date.fromisoformat(c["deadline_date"]) - today).days
+        existing_types = {e["event_type"] for e in c.get("compliance_events", [])}
 
-        # Auto-create post_deadline event if overdue and not already present
         if days_remaining < 0 and "post_deadline" not in existing_types:
-            event = models.ComplianceEvent(
-                commitment_id=c.id,
-                event_type="post_deadline",
-                event_date=today,
-                status=c.current_status,
-            )
-            db.add(event)
+            db.table("compliance_events").insert({
+                "commitment_id": c["id"],
+                "event_type": "post_deadline",
+                "event_date": today.isoformat(),
+                "status": c["current_status"],
+            }).execute()
             created_events.append({
-                "commitment_id": c.id,
-                "company": c.company.name,
+                "commitment_id": c["id"],
                 "event_type": "post_deadline",
                 "days_overdue": abs(days_remaining),
             })
 
-        # Auto-create pre_deadline event at T-30 and T-7
         elif days_remaining in (30, 7):
-            event = models.ComplianceEvent(
-                commitment_id=c.id,
-                event_type="pre_deadline",
-                event_date=today,
-                status=c.current_status,
-            )
-            db.add(event)
+            db.table("compliance_events").insert({
+                "commitment_id": c["id"],
+                "event_type": "pre_deadline",
+                "event_date": today.isoformat(),
+                "status": c["current_status"],
+            }).execute()
             created_events.append({
-                "commitment_id": c.id,
-                "company": c.company.name,
+                "commitment_id": c["id"],
                 "event_type": "pre_deadline",
                 "days_remaining": days_remaining,
             })
         else:
-            skipped.append(c.id)
-
-    db.commit()
+            skipped.append(c["id"])
 
     return {
         "processed_at": today.isoformat(),
@@ -268,3 +370,36 @@ def process_deadlines(db: Session = Depends(get_db)):
         "detail": created_events,
         "skipped_commitment_ids": skipped,
     }
+
+
+# ─── Open Paws Trigger ──────────────────────────────────────
+
+def _trigger_open_paws(company_id: str, org_id: str) -> None:
+    """
+    Fire-and-forget: hit the n8n webhook that kicks off Open Paws.
+    n8n fetches the company details and posts the report back to
+    POST /internal/reports once complete.
+    """
+    import os, requests as req
+    webhook_url = os.getenv("N8N_OPEN_PAWS_WEBHOOK_URL")
+    if not webhook_url:
+        return
+    try:
+        req.post(webhook_url, json={"company_id": company_id, "org_id": org_id}, timeout=5)
+    except Exception:
+        pass  # Non-blocking — report generation failure shouldn't break the save
+
+
+@app.post("/internal/reports", status_code=201)
+def receive_open_paws_report(payload: dict):
+    """
+    n8n calls this endpoint once Open Paws finishes.
+    Stores the OSINT report in company_reports.
+    """
+    db = get_db()
+    db.table("company_reports").insert({
+        "company_id": payload["company_id"],
+        "org_id": payload["org_id"],
+        "report_json": payload["report"],
+    }).execute()
+    return {"message": "Report stored."}

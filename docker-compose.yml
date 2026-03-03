@@ -1,42 +1,31 @@
 services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: awc
-      POSTGRES_USER: awc
-      POSTGRES_PASSWORD: awc
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "5432:5432"
-
   backend:
     build: ./backend
     volumes:
       - ./backend:/app
-    depends_on:
-      - postgres
-    environment:
-      DATABASE_URL: postgresql+psycopg2://awc:awc@postgres:5432/awc
+    env_file: .env
     ports:
       - "8000:8000"
 
+  scraping:
+    build: ./scraping
+    volumes:
+      - ./scraping:/app
+      - ./data:/app/data
+    env_file: .env
+    ports:
+      - "8001:8001"
+
   n8n:
     image: n8nio/n8n
+    env_file: .env
     environment:
-      DB_TYPE: postgresdb
-      DB_POSTGRESDB_HOST: postgres
-      DB_POSTGRESDB_DATABASE: awc
-      DB_POSTGRESDB_USER: awc
-      DB_POSTGRESDB_PASSWORD: awc
+      # n8n stores its own config in SQLite by default — no postgres needed
       N8N_BASIC_AUTH_ACTIVE: "true"
       N8N_BASIC_AUTH_USER: admin
-      N8N_BASIC_AUTH_PASSWORD: admin
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
     ports:
       - "5678:5678"
-    depends_on:
-      - postgres
     volumes:
       - n8n_data:/home/node/.n8n
 
@@ -44,9 +33,14 @@ services:
     build: ./frontend
     volumes:
       - ./frontend:/app
+    env_file: .env
     ports:
       - "3000:3000"
 
 volumes:
-  pgdata:
   n8n_data:
+
+# ─── Removed ────────────────────────────────────────────────
+# Local postgres service removed — Supabase is the database.
+# n8n now uses SQLite for its own internal storage (simpler, no local DB needed).
+# All services read credentials from .env via env_file.
