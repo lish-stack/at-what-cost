@@ -28,7 +28,7 @@ Corporate animal welfare commitments get made, deadlines pass, and nothing happe
 | Backend | Python / FastAPI |
 | Database + Auth | Supabase (Postgres + RLS + Auth) |
 | Orchestration | n8n |
-| Commitment ingestion | Inoreader + Jina AI + Claude Haiku |
+| Commitment ingestion | Inoreader + Jina AI + OpenRouter Claude Haiku |
 | Company OSINT | Open Paws API (n8n workflow) |
 | Infra | Docker + docker-compose |
 
@@ -38,14 +38,13 @@ Corporate animal welfare commitments get made, deadlines pass, and nothing happe
 
 ```
 at-what-cost/
-├── backend/           
-│   └── app/          # FastAPI app, models,
-│   └── rss/          # Inoreader webhook     listener + test pipeline
+├── backend/          # FastAPI app, models, endpoints
 ├── frontend/         # React + Vite
+├── scraping/
+│   └── rss/          # Inoreader webhook listener + test pipeline
 ├── n8n/              # Workflow exports
-├── designs/          # Design docs, user research
+├── designs/             # Design docs, user research
 └── data/             # Sample data
-```
 
 ---
 

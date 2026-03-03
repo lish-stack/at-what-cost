@@ -72,7 +72,7 @@ The org panel data is never visible to the company being researched. Supabase Ro
 | Commitment ingestion | **Inoreader** (RSS) → keyword filter → webhook → Jina AI fetch → Claude Haiku extraction |
 | Article fetching | **Jina AI Reader** (`r.jina.ai/` prefix) — handles JS-rendered pages, clean markdown output |
 | Company OSINT | **Open Paws API** (n8n workflow — CourtListener, LegiScan, DocumentCloud, Serper + Jina AI) |
-| LLM | **Claude** (Haiku for extraction, Sonnet for synthesis/reports) |
+| LLM | **Claude/OpenRouter** (Haiku for extraction, Sonnet for synthesis/reports) |
 | Database + Auth | **Supabase** (Postgres + RLS + Auth + encryption) |
 | Orchestration | **n8n** |
 | Backend | **Python / FastAPI** |
@@ -267,14 +267,17 @@ App.jsx
 - Supabase schema + RLS
 - Backend API (FastAPI + Supabase)
 - Scraping pipeline (Inoreader → Jina → OpenRouter → Supabase)
-
+- Frontend wired to live API (CommitmentList + CommitmentDetail pulling from Supabase)
+- CORS configured on backend
+- Vite port aligned to docker-compose (3000)
+- Supabase service role key + RLS insert policy on companies table fixed
 
 ### In Progress 🔧
 - Wire Inoreader webhooks to hit /webhook/inoreader
-- Frontend wired to live API
 - Org auth layer (login, roles, session)
 
 ### Next Up
+- Companies/Brands page — group `GET /commitments` by company in frontend, derive per-company accountability score from lifecycle phases
 - Supabase RLS policies for org-gated tables
 - Open Paws API integration (trigger from company page)
 - Org panel UI component (additive on company page)
@@ -293,7 +296,7 @@ App.jsx
 
 - ~~**Company dossier trigger**~~ — Resolved: Open Paws runs automatically when a company is saved.
 - **Org onboarding**: How do orgs get accounts — self-serve signup or manual provisioning for MVP?
-- **Score methodology**: How is the public accountability score calculated and displayed?
+- ~~**Score methodology**~~ — MVP approach: derive from worst `lifecycle_phase` across a company's commitments (overdue > at_risk > pre_deadline > compliant). Computed client-side from `GET /commitments` grouped by company. Numeric score system (like index.html) is post-MVP.
 - **Private commitment data**: Do orgs ever contribute non-public commitment data, or is AWC purely ingestive?
 
 ---

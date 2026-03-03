@@ -11,7 +11,7 @@ export default function CommitmentCard({ commitment }) {
       style={{ textDecoration: "none", color: "inherit" }}
     >
       <div style={styles.card}>
-        <h3 style={styles.company}>{commitment.company}</h3>
+        <h3 style={styles.company}>{commitment.company?.name}</h3>
         <p style={styles.meta}>
           Deadline: {commitment.deadline_date}
         </p>

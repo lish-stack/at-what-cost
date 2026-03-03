@@ -11,12 +11,20 @@ from datetime import date
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from supabase import Client
 
 from .db import get_db, get_user_db
 from .schemas import CommitmentCreate, ComplianceEventCreate, EvidenceCreate
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # ─── Auth Helpers ───────────────────────────────────────────
