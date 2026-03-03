@@ -360,25 +360,68 @@ All core endpoints implemented. Automation trigger live.
   * how commitments are tracked
   * when mobilization helps or hurts
 * Treat scraping + synthesis as default; revisit manual uploads only if strongly demanded.
-* Optimize for **persistent memory + timing**, not dashboards.
 
 ---
 
 ## Open Questions & Active Discovery
 
 ### Target Market (In Discovery)
-- Advocacy organizations are the *primary source* of commitments and campaigns.
+- Advocacy organizations are the *primary source* of commitments and campaigns. Both campaigns and commitments are found through scraping. 
 - Individuals are a *secondary audience* activated through time-based resurfacing.
-- Balance between org-facing and individual-facing value still being tested.
 
-### Mobilization Effectiveness (In Discovery)
-- When individual actions materially contribute vs. introduce noise is not yet established.
-- Hypothesis: individuals are most effective at *specific moments* in the commitment lifecycle.
+### Target Market Differences in Tooling
+- Individual and public-facing company dossier should have non-intensive tracking, perhaps general sustainability-focused information or commitment history. The organization's dashboard should have much more in-depth information that we would not want the company to see themselves or know about.   
 
 ### Organizational Workflows (In Discovery)
 - Whether orgs want to contribute private commitment data.
 - Whether AWC should remain purely ingestive or support limited uploads.
 - Default: scraping + synthesis, zero required org adoption.
+
+### Organzization's Problems
+
+- Dashboard and internal tool fatigue.
+- Lack of consistency/organization within Google Sheets/Excel
+- Manual research of company is the most important yet most time-consuming/intensive.
+- Google alerts flood inbox, especially for large comapny. 
+- Researching company needs to be as easy as possible. Would want to check in on the company information before (or even during) a meeting
+ 
+
+## Company Profile Database / Dossier
+* still figuring how to build in a way that an organization can save specific companies they are researching, and prove their account, without making a whole other tool to integrate with...
+
+* also in a way that filters the most useful information without overflowing, searchable definetely. 
+
+### Useful Organization Information to track of company
+
+Commitment & Compliance
+
+- Cage-free / broiler commitment status
+- Progress reports and filings
+- ESG / CSR disclosures
+- Annual AGM outcomes
+- Progress made in other markets ("they did it in Europe, why not here")
+
+Company Structure
+
+- Leadership profile and corporate hierarchy
+- Executive changes (triggers updated call sheets)
+- Board memberships and overlapping affiliations
+- Franchising structure and key partners
+ 
+Signals & Triggers
+
+- Website headline or page changes
+- New public documents or reports
+- Financial reports and IPO activity
+- Social media changes
+- Google News / press mentions
+ 
+People to Target or Leverage
+
+- Executive public statements usable for social media
+- Brand ambassadors
+- Internal advocates ("vocal influencers on the inside")
+- Decision-maker contact info
 
 ---
 
