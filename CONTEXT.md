@@ -1,30 +1,21 @@
-# At What Cost — Project Summary & Current State
-
-## Project Overview
-
-**At What Cost (AWC)** is an animal-focused accountability and mobilization platform that tracks public commitments made by corporations and institutions, monitors whether they are fulfilled, and creates durable public accountability records when deadlines are reached.
-
-Built on a neutral commitment-tracking core, the platform mobilizes individuals around verified failures and aligns their actions with coordinated efforts led by advocacy organizations.
-
-By anchoring campaigns, individual action, and institutional pressure to a shared accountability record, At What Cost enables sustained, collective pressure—especially after traditional campaigns conclude.
+# At What Cost — Project Context
+> Single source of truth. README.md covers setup only. All other MD files deprecated.
 
 ---
 
-## Product Philosophy
+github: https://github.com/lish-stack/at-what-cost
 
-### Core Principles
-
-- **Commitments are the atomic unit**, not campaigns.
-- **Time is the differentiator**: pre-deadline pressure, deadline escalation, post-deadline follow-up.
-- **No separation between orgs and individuals** at the data layer.
-- **Non-invasive org involvement**: ingest public commitments and campaigns; do not require org adoption.
-- **Individuals act most effectively at the right moment**, not continuously.
-- **AWC remembers so humans don't have to.**
+## One-Line Summary
+At What Cost turns forgotten animal welfare commitments into living accountability records — and gives advocacy organizations deep, structured intelligence on the companies they're pressuring.
 
 ---
 
-## Project Vision
+## Product Vision
 We're building an app that makes corporate accountability as easy as ordering takeout.
+
+Corporate commitments get made, deadlines pass, and nothing happens. AWC closes that loop — publicly for consumers, and with serious depth for organizations running campaigns.
+
+---
 
 ## Design Principles
 - **Action-first**: Every feature should drive user action
@@ -32,131 +23,189 @@ We're building an app that makes corporate accountability as easy as ordering ta
 - **Non-preachy**: Appeal to non-vegans through corporate accountability angle
 - **Mobile-first**: Optimized for quick actions on mobile
 
-## Target Users (TBD)
+---
 
-### Primary
-- Animal advocacy organizations
-- Campaigners
-- Researchers / analysts
+## Two Audiences, One Codebase
 
-### Secondary
-- Ethically motivated individuals / consumers
-- 18-34 years old
-- Urban, conscious consumers
-- Care about corporate ethics
-- Want quick, meaningful actions
+### Public / Individual Users
+- Browse commitments and company accountability scores
+- Click through to a basic company profile
+- See urgency signals (upcoming deadlines, broken promises)
+- Take one-tap actions (email/call scripts) when campaigns exist
 
-Organizations generate commitments and campaigns.  
-AWC ensures those commitments are:
-- structured
-- remembered
-- resurfaced
-- mobilized against at the right time
+### Org Users (authenticated)
+- Same base experience as public, but scoped to their **saved companies**
+- Company page = shared public view + **org-only panel** (additive, not separate)
+- Org panel includes: leadership profiles, corporate structure, court cases, legislation, OSINT report, decision-maker contacts
+- Home shows stats scoped to their own campaigns, not global
+- Orgs hold **long-lived API keys** for programmatic access
 
-If campaign exists we funnel individuals there, if not then we generate script for individuals to take action (email/phone) as the stopgap.
+The org panel data is never visible to the company being researched. Supabase Row Level Security enforces this at the database layer.
 
 ---
 
-## In-Scope vs Out-of-Scope
-
-### In Scope
-- Public commitments and deadlines
-- Public campaigns (if they exist)
-- Time-based alerts and resurfacing
-- Accountability reports
-- Positive reinforcement for compliant companies
-- Individual mobilization via scripts when no campaign exists
-
-### Out of Scope (for now)
-- Internal NGO dashboards
-- Campaign management tooling
-- Private org-only scheduling systems
-- Certification workflows (e.g. hospital/school programs)
-- NGO operational tooling
-- WhatsApp-based internal coordination tools
-
-If future research shows strong demand for internal org tooling, scope may be revisited.
+## Core Concept
+- **Commitments are the atomic unit** — not campaigns, not companies
+- **Company database is the central value prop** — rich, structured intelligence that compounds over time
+- **Time-based triggers exist but are deprioritized** — every org manages schedules differently; robotic alerts reduce effectiveness. Background feature, not core loop.
+- AWC remembers so humans don't have to
 
 ---
 
-## High-Level System Architecture
+## Four App Sections
 
-### Stack
-- **Frontend**: JavaScript (Vite / React)
-- **Backend**: Python (FastAPI)
-- **Orchestration**: n8n
-- **Database**: PostgreSQL
-- **Infra**: Docker + docker-compose
+| # | Section | Public | Org |
+|---|---------|--------|-----|
+| 1 | **Home** | Urgent actions, global stats, spotlight companies | Same layout, stats scoped to saved companies + their campaigns |
+| 2 | **Brands** | Full directory — search, filter, accountability scores | Saved companies only — same cards, deeper dossier on click |
+| 3 | **Act** | Available actions (email/call scripts) | — |
+| 4 | **Give** | Donation options | — |
 
-### Responsibility Split
-
-| Component | Responsibility |
-|---------|----------------|
-| PostgreSQL | Source of truth |
-| Python backend | Business logic, parsing, classification |
-| n8n | Scheduling, triggers, integrations |
-| Frontend | Read-only presentation + calls to action |
+> **Act** and **Give** are out of scope for MVP.
 
 ---
 
-## Python vs n8n Decision Rule
+## MVP Stack (Locked)
 
-### Use Python when:
-- Logic evolves over time
-- Judgement or classification is involved
-- Code needs testing
-- Business rules exist
-- Confidence or scoring is needed
-
-### Use n8n when:
-- Scheduling or cron-like behavior
-- Integrations across services
-- Web scraping coordination
-- Triggering alerts
-- Calling APIs (including Python service)
-
-**n8n orchestrates. Python decides.**
-
-### Scraping
-aggregated feed -> trigger -> scraping API -> retrieve the list of campiagns -> LLM sees if it relevant and is it new -> add to db
-
-## Innoreader
-recommended newsfeed aggregator to scrape from. 
+| Layer | Tool |
+|-------|------|
+| Commitment ingestion | **Inoreader** (RSS) → keyword filter → webhook → Jina AI fetch → Claude Haiku extraction |
+| Article fetching | **Jina AI Reader** (`r.jina.ai/` prefix) — handles JS-rendered pages, clean markdown output |
+| Company OSINT | **Open Paws API** (n8n workflow — CourtListener, LegiScan, DocumentCloud, Serper + Jina AI) |
+| LLM | **Claude** (Haiku for extraction, Sonnet for synthesis/reports) |
+| Database + Auth | **Supabase** (Postgres + RLS + Auth + encryption) |
+| Orchestration | **n8n** |
+| Backend | **Python / FastAPI** |
+| Frontend | **React (Vite)** — web first, React Native later |
+| Infra | **Docker + docker-compose** |
 
 ---
 
-## Current Phase
+## Open Paws API — What It Does
 
-### Phase A — Commitment Intelligence Layer (IN PROGRESS)
+Multi-phase OSINT agent that builds deep company profiles from public sources:
 
-#### Implemented ✅
-- Commitment schema + SQLAlchemy models
+1. **Discovery** — CourtListener (court cases), LegiScan (legislation), DocumentCloud (gov docs), Serper (news/web)
+2. **Verification** — confirms records actually relate to the target company (avoids false positives from similar names)
+3. **Prioritization** — scores and selects most relevant items
+4. **Retrieval** — fetches full text of opinions, bills, documents
+5. **Analysis** — synthesizes findings into strategic insights
+6. **Verification** — checks final report against sources
+
+Input: `{ companyName, companyDomain, reportGoal }`
+Output: Structured strategic report — stored in Supabase, visible only to orgs with access.
+
+Required API keys: CourtListener, LegiScan, Serper, Jina AI, OpenRouter.
+
+---
+
+## Data Tiers & Supabase RLS
+
+| Data | Visible To | Stored In |
+|------|-----------|-----------|
+| Commitments, scores, basic company info | Everyone | `companies`, `commitments` tables |
+| OSINT reports, court cases, legislation | Org users only | `company_reports` (RLS: org_id match) |
+| Saved company lists | Org users only | `org_saved_companies` (RLS) |
+| Decision-maker contacts | Org users only | `decision_makers` (RLS) |
+| Org campaign data | Org users only | `campaigns` (RLS) |
+
+Auth: Supabase Auth handles login, roles (`public`, `org`), and session management. Orgs can hold long-lived API keys for programmatic/n8n access.
+
+---
+
+## Company Page Structure
+
+### Public layer (everyone sees this)
+- Commitment status + history
+- Accountability score
 - Deadline tracking
-- Compliance states
-- Evidence storage + endpoint
-- Event lifecycle model
-- `GET /commitments` — list all with lifecycle phase
-- `GET /commitments/{id}` — detail with events + evidence
-- `POST /commitments` — create commitment + auto-anchor deadline event
-- `POST /commitments/{id}/events` — manual event insertion
-- `POST /commitments/{id}/evidence` — attach evidence sources
-- `POST /internal/process-deadlines` — automation trigger (n8n calls this daily)
-- n8n daily cron workflow wired to deadline processor
+- Evidence sources
+- Existing public campaigns + CTA
 
-#### Bug Fixes Applied ✅
-- `get_commitment` now properly raises HTTP 404 instead of returning error dict
-- Duplicate lifecycle/days logic extracted into shared helpers (`compute_days_remaining`, `derive_lifecycle_phase`)
-- `derive_lifecycle_phase` now respects `compliant` status — compliant companies no longer show as overdue
-- `serialize_commitment` helper used consistently across all GET endpoints
+### Org panel (bolted on, auth-gated)
 
-#### Next Focus
-- Frontend wired to live API
-- n8n notification node (Slack/email) on overdue events
-- Scraping pipeline for cage-free data ingestion
+> **MVP behavior**: Open Paws runs automatically when an org saves a company. Data populates once and is static until manually re-triggered. No refresh buttons in MVP.
+
+> **Post-MVP — Refresh-by-section**: Each section will have a button that triggers a lightweight, scoped workflow (truncated n8n or dedicated endpoint) that refetches and overwrites only that section's data. changedetection.io slots into Signals & Triggers here. Implementation approach TBD.
+
+#### Commitment & Compliance
+- Cage-free / broiler commitment status
+- Progress reports and filings
+- ESG / CSR disclosures
+- Annual AGM outcomes
+- Progress in other markets ("they did it in Europe, why not here")
+
+#### Company Structure
+- Leadership profile + corporate hierarchy
+- Executive changes (triggers updated call sheets)
+- Board memberships + overlapping affiliations
+- Franchising structure + key partners
+
+#### Signals & Triggers
+- Website headline or page changes *(changedetection.io — post-MVP, self-hosted Docker)*
+- New public documents or reports
+- Financial reports + IPO activity
+- Social media changes
+- Google News / press mentions
+
+#### People to Target or Leverage
+- Executive public statements usable for social media
+- Brand ambassadors
+- Internal advocates (vocal influencers on the inside)
+- Decision-maker contact info
+
+#### Legal & Legislative (via Open Paws API)
+- Court cases + legal history (CourtListener)
+- Related legislation across states (LegiScan)
+- Government documents + reports (DocumentCloud)
+- OSINT synthesis report
+
+#### Internal (org-specific, never shared)
+- Notes, tags, campaign linkage
 
 ---
 
-## PostgreSQL Schema (v1 — locked)
+## Design System
+
+- **Logo**: at-what-cost-logo
+- **Font**: Reddit Mono (12–20px; line-height = font-size + 8px)
+- **Brand colors**: Burgundy `#660033`, Tiber `#0A3345`
+- **Accent colors**: Vegan Cream `#FAF7F2`, Soft Gray `#E8E8E8`
+- **Icons**: Google Material Icons (Apache 2.0)
+- Clean, minimal aesthetic
+
+---
+
+## Commitment Ingestion Pipeline
+
+```
+Inoreader RSS feeds (Google News, NGO blogs, etc.)
+    ↓
+Keyword rules — cheap first filter, costs nothing
+(e.g. "cage-free", "broiler", "animal welfare commitment")
+Tighten rules here before touching the API layer
+    ↓
+Webhook → webhook_listener.py
+    ↓
+1. Jina AI Reader fetches full article (r.jina.ai/{url})
+   — handles JS-rendered pages, returns clean markdown
+   — same Jina key already used by Open Paws
+2. Claude Haiku → structured extraction + relevance score
+3. Relevance score >= 50 + is_new → store to Supabase
+```
+
+**On filtering**: Inoreader keyword rules are the free gate — no LLM runs until a rule matches. Haiku's relevance score (≥50) is the second gate, catching noise that slips through. No LLM pre-filter needed before Inoreader; tightening keyword combinations is more cost-effective.
+
+### LLM Extracts
+- Company (name, website, industry)
+- Commitment (type, text, dates, status, species, scope, progress %)
+- Evidence (source type, summary)
+- Campaign (summary, tactic, CTA, urgency score)
+- Decision makers (name, role, contact URL)
+
+---
+
+## PostgreSQL Schema (via Supabase)
 
 ### Enums
 ```sql
@@ -167,84 +216,13 @@ source_type_enum: 'report' | 'news' | 'company_statement'
 ```
 
 ### Tables
-
-#### companies
-* id, name, website, industry, created_at
-
-#### commitments
-* id, company_id, commitment_type, public_statement_url, commitment_text, announced_date, deadline_date, current_status, created_at
-
-#### compliance_events
-* id, commitment_id, event_type, event_date, status, created_at
-
-#### evidence
-* id, commitment_id, source_url, source_type, summary, created_at
-
-#### decision_makers (optional v1)
-* id, company_id, name, role, contact_url, created_at
-
----
-
-## Docker Architecture
-
-### Services
-* postgres
-* backend (python)
-* n8n
-* frontend
-
-### Version Pinning (Intentional)
-* Python: `python:3.12-slim-bookworm`
-* Node: `node:22-slim`
-
----
-
-## Dockerfiles
-
-### Backend (`backend/Dockerfile`)
-
-```dockerfile
-FROM python:3.12-slim-bookworm
-RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-```
-
-### Frontend (`frontend/Dockerfile`)
-
-```dockerfile
-FROM node:22-slim
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-EXPOSE 3000
-CMD ["npm", "run", "dev", "--", "--host"]
-```
-
----
-
-## Current Technical Status
-
-### Completed ✅
-* Repo connected to VS Code
-* Docker + docker-compose setup
-* PostgreSQL schema defined
-* Backend + frontend containers defined
-* Architectural decisions locked
-* Full ingestion pipeline: POST /commitments → company upsert → commitment → anchor event
-* Evidence endpoint live
-* Automation trigger endpoint live (`/internal/process-deadlines`)
-* n8n daily cron wired to trigger Python
-* Bug fixes: 404 handling, lifecycle logic deduplication, compliant status respected
-
-### In Progress
-* Frontend wired to live API data
-* n8n notification node (Slack/email) when overdue events are created
+- **companies** — id, name, website, industry, created_at
+- **commitments** — id, company_id, commitment_type, public_statement_url, commitment_text, announced_date, deadline_date, current_status, created_at
+- **compliance_events** — id, commitment_id, event_type, event_date, status, created_at
+- **evidence** — id, commitment_id, source_url, source_type, summary, created_at
+- **decision_makers** — id, company_id, name, role, contact_url, created_at *(org-only via RLS)*
+- **company_reports** — id, company_id, report_json, generated_at, org_id *(org-only via RLS)*
+- **org_saved_companies** — org_id, company_id *(org-only via RLS)*
 
 ---
 
@@ -252,179 +230,83 @@ CMD ["npm", "run", "dev", "--", "--host"]
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | /commitments | List all commitments with lifecycle phase |
-| GET | /commitments/{id} | Commitment detail with events + evidence |
-| POST | /commitments | Create commitment (upserts company, anchors event) |
-| POST | /commitments/{id}/events | Add manual compliance event |
-| POST | /commitments/{id}/evidence | Attach evidence source |
-| POST | /internal/process-deadlines | n8n trigger — auto-creates lifecycle events |
+| GET | `/commitments` | List all with lifecycle phase |
+| GET | `/commitments/{id}` | Detail with events + evidence |
+| POST | `/commitments` | Create (upserts company, anchors event) |
+| POST | `/commitments/{id}/events` | Add manual compliance event |
+| POST | `/commitments/{id}/evidence` | Attach evidence source |
+| POST | `/internal/process-deadlines` | n8n trigger — auto lifecycle events *(deprioritized)* |
 
 ---
 
-## Schemas
-
-```python
-class CommitmentType(str, Enum):
-    cage_free_eggs = "cage_free_eggs"
-
-class ComplianceStatus(str, Enum):
-    compliant = "compliant"
-    partial = "partial"
-    non_compliant = "non_compliant"
-    unknown = "unknown"
-
-class EventType(str, Enum):
-    pre_deadline = "pre_deadline"
-    deadline = "deadline"
-    post_deadline = "post_deadline"
-
-class SourceType(str, Enum):
-    report = "report"
-    news = "news"
-    company_statement = "company_statement"
-
-class CompanyCreate(BaseModel):
-    name: str
-    website: Optional[str] = None
-    industry: Optional[str] = None
-
-class CommitmentCreate(BaseModel):
-    company: CompanyCreate
-    commitment_type: CommitmentType
-    commitment_text: str
-    announced_date: date
-    deadline_date: date
-    public_statement_url: Optional[str] = None
-
-class ComplianceEventCreate(BaseModel):
-    event_type: EventType
-    event_date: date
-    status: ComplianceStatus
-    update_commitment_status: Optional[bool] = False
-
-class EvidenceCreate(BaseModel):
-    source_url: str
-    source_type: SourceType
-    summary: str
-```
-
----
-
-## Frontend Components
+## Frontend Components (Current)
 
 ```
 components/
   CommitmentCard.jsx
-  CommitmentDetail.jsx   (note: was misspelled "CommitmnetDetail")
+  CommitmentDetail.jsx
   CommitmentList.jsx
   LifecycleBadge.jsx
-
 App.jsx
 ```
 
 ---
 
-## Immediate Next Steps (Execution)
+## Build Status
 
-### Backend — DONE ✅
-All core endpoints implemented. Automation trigger live.
+### Done ✅
+- Commitment schema + SQLAlchemy models
+- Deadline tracking + compliance states
+- Evidence storage + endpoint
+- Event lifecycle model
+- All core GET/POST commitment endpoints
+- `POST /internal/process-deadlines` automation trigger
+- n8n daily cron wired to deadline processor
+- Bug fixes: 404 handling, lifecycle deduplication, compliant status respected
+- RSS webhook pipeline (Inoreader → Claude Haiku → JSON)
 
-### n8n — PARTIALLY DONE
-- [x] Daily cron → `/internal/process-deadlines`
-- [ ] Wire IF node to Slack/email notification on overdue events
-- [ ] Build cage-free scraping workflow → `POST /commitments`
+### In Progress 🔧
+- Migrate from raw Postgres to Supabase (DB + Auth + RLS)
+- Frontend wired to live API
+- Org auth layer (login, roles, session)
 
-### Frontend — TODO
-1. Wire `CommitmentList` to `GET /commitments`
-2. Wire `CommitmentDetail` to `GET /commitments/{id}`
-3. `LifecycleBadge` should reflect: `compliant` | `pre_deadline` | `at_risk` | `overdue`
-4. Deadline countdown from `days_remaining` field
-5. CTA: if `public_statement_url` exists → link; else → generated contact script
+### Next Up
+- Supabase RLS policies for org-gated tables
+- Open Paws API integration (trigger from company page)
+- Org panel UI component (additive on company page)
+- Org saved companies feature
 
----
-
-## Automation Logic (in Python, called by n8n)
-
-`POST /internal/process-deadlines` runs daily and:
-- Skips commitments with no deadline or `compliant` status
-- Creates `post_deadline` event when overdue and no post_deadline event exists yet
-- Creates `pre_deadline` event at exactly T-30 and T-7
-- Returns summary of what was created (n8n can branch on `events_created > 0`)
-
----
-
-## Strategic Direction (Locked for Now)
-
-* Build **Layer 1 (Commitment Intelligence)** regardless of downstream pivots.
-* Continue org interviews focused on:
-  * how commitments are tracked
-  * when mobilization helps or hurts
-* Treat scraping + synthesis as default; revisit manual uploads only if strongly demanded.
+### Deprioritized (not dropped)
+- Time-based notification system (n8n Slack/email on overdue)
+- Refresh-by-section org panel (scoped n8n workflows or dedicated endpoints per section; changedetection.io slots into Signals & Triggers here)
+- Act section (action templates, email/call execution)
+- Give section (donation options)
+- React Native / mobile app
 
 ---
 
-## Open Questions & Active Discovery
+## Open Questions
 
-### Target Market (In Discovery)
-- Advocacy organizations are the *primary source* of commitments and campaigns. Both campaigns and commitments are found through scraping. 
-- Individuals are a *secondary audience* activated through time-based resurfacing.
-
-### Target Market Differences in Tooling
-- Individual and public-facing company dossier should have non-intensive tracking, perhaps general sustainability-focused information or commitment history. The organization's dashboard should have much more in-depth information that we would not want the company to see themselves or know about.   
-
-### Organizational Workflows (In Discovery)
-- Whether orgs want to contribute private commitment data.
-- Whether AWC should remain purely ingestive or support limited uploads.
-- Default: scraping + synthesis, zero required org adoption.
-
-### Organzization's Problems
-
-- Dashboard and internal tool fatigue.
-- Lack of consistency/organization within Google Sheets/Excel
-- Manual research of company is the most important yet most time-consuming/intensive.
-- Google alerts flood inbox, especially for large comapny. 
-- Researching company needs to be as easy as possible. Would want to check in on the company information before (or even during) a meeting
- 
-
-## Company Profile Database / Dossier
-* still figuring how to build in a way that an organization can save specific companies they are researching, and prove their account, without making a whole other tool to integrate with...
-
-* also in a way that filters the most useful information without overflowing, searchable definetely. 
-
-### Useful Organization Information to track of company
-
-Commitment & Compliance
-
-- Cage-free / broiler commitment status
-- Progress reports and filings
-- ESG / CSR disclosures
-- Annual AGM outcomes
-- Progress made in other markets ("they did it in Europe, why not here")
-
-Company Structure
-
-- Leadership profile and corporate hierarchy
-- Executive changes (triggers updated call sheets)
-- Board memberships and overlapping affiliations
-- Franchising structure and key partners
- 
-Signals & Triggers
-
-- Website headline or page changes
-- New public documents or reports
-- Financial reports and IPO activity
-- Social media changes
-- Google News / press mentions
- 
-People to Target or Leverage
-
-- Executive public statements usable for social media
-- Brand ambassadors
-- Internal advocates ("vocal influencers on the inside")
-- Decision-maker contact info
+- ~~**Company dossier trigger**~~ — Resolved: Open Paws runs automatically when a company is saved.
+- **Org onboarding**: How do orgs get accounts — self-serve signup or manual provisioning for MVP?
+- **Score methodology**: How is the public accountability score calculated and displayed?
+- **Private commitment data**: Do orgs ever contribute non-public commitment data, or is AWC purely ingestive?
 
 ---
 
-## One-Line Summary
+## In Scope vs Out of Scope
 
-At What Cost is building time-aware infrastructure that turns forgotten animal welfare commitments into living accountability events—so pressure compounds instead of resetting.
+### In Scope
+- Public commitment tracking + company profiles
+- Org-authenticated deep dossiers (via Open Paws)
+- Scraping pipeline (Inoreader + Claude)
+- Time-based triggers (background, deprioritized)
+- Individual mobilization via scripts when no campaign exists
+- Positive reinforcement for compliant companies
+
+### Out of Scope (for now)
+- Internal NGO dashboards / campaign management tooling
+- Certification workflows
+- WhatsApp-based coordination
+- Private org-only scheduling systems
+- React Native app (web first)

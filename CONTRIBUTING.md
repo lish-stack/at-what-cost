@@ -1,5 +1,10 @@
 # Contributing to At What Cost
 
+> Read CONTEXT.md first. It has all architecture decisions, stack choices, and build status.
+
+---
+
+
 ## Project Vision
 We're building an app that makes corporate accountability as easy as ordering takeout.
 
@@ -9,11 +14,20 @@ We're building an app that makes corporate accountability as easy as ordering ta
 - **Non-preachy**: Appeal to non-vegans through corporate accountability angle
 - **Mobile-first**: Optimized for quick actions on mobile
 
-## Current Priorities
-1. Set up React Native project structure
-2. Design database schema for companies/actions
-3. Build API for company scoring
-4. Create email/petition template system
+---
+
+## Stack Decisions (Locked)
+
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Database + Auth | Supabase | RLS for org/public data tiers, built-in auth, encryption |
+| Article fetching | Jina AI Reader | Handles JS-rendered pages; same key used by Open Paws |
+| Ingestion filter | Inoreader keyword rules then Claude Haiku relevance score | Free gate before any API spend |
+| OSINT | Open Paws API via n8n | CourtListener + LegiScan + DocumentCloud + Serper in one workflow |
+| Orchestration | n8n | Schedules, triggers, API calls. Python handles logic. |
+| Frontend | React + Vite web first | React Native post-MVP |
+
+---
 
 ## How to Contribute
 1. Check existing issues or create a new one
