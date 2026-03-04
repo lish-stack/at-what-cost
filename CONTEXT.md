@@ -271,17 +271,18 @@ App.jsx
 - CORS configured on backend
 - Vite port aligned to docker-compose (3000)
 - Supabase service role key + RLS insert policy on companies table fixed
+- Brands/Companies page — CompanyList, CompanyCard, CompanyDetail; groups `GET /commitments` by company client-side; worst `lifecycle_phase` as accountability signal; client-side search; routes `/companies` and `/companies/:name`
+- Org auth layer — Supabase Auth, AuthContext, login/signup page, role fetch from `profiles` table, `user_role_enum` ('public' | 'org')
+- Org panel — OrgPanel component on CompanyDetail (org-only); save/unsave company, internal notes (persisted to Supabase), OSINT report placeholder; `company_id` exposed in `GET /commitments` response
+- Org RLS — policies on `profiles`, `org_saved_companies`, `company_reports`, `org_company_notes`; signup trigger auto-creates profile with 'public' role
+- Nav bar — auth state (email, Org badge, Sign Out); `/auth` route
 
 ### In Progress 🔧
 - Wire Inoreader webhooks to hit /webhook/inoreader
-- Org auth layer (login, roles, session)
 
 ### Next Up
-- Companies/Brands page — group `GET /commitments` by company in frontend, derive per-company accountability score from lifecycle phases
-- Supabase RLS policies for org-gated tables
-- Open Paws API integration (trigger from company page)
-- Org panel UI component (additive on company page)
-- Org saved companies feature
+- Open Paws API integration (n8n webhook trigger wired to `POST /org/saved-companies/:id` already exists — needs N8N_OPEN_PAWS_WEBHOOK_URL in .env)
+- Org onboarding UX — currently manual SQL to upgrade role; decide if self-serve or keep manual for MVP
 
 ### Deprioritized (not dropped)
 - Time-based notification system (n8n Slack/email on overdue)
@@ -295,7 +296,7 @@ App.jsx
 ## Open Questions
 
 - ~~**Company dossier trigger**~~ — Resolved: Open Paws runs automatically when a company is saved.
-- **Org onboarding**: How do orgs get accounts — self-serve signup or manual provisioning for MVP?
+- **Org onboarding**: Self-serve signup implemented (anyone can create account); role upgrade to 'org' is currently manual SQL. Decide if this stays manual for MVP or needs a request/approval flow.
 - ~~**Score methodology**~~ — MVP approach: derive from worst `lifecycle_phase` across a company's commitments (overdue > at_risk > pre_deadline > compliant). Computed client-side from `GET /commitments` grouped by company. Numeric score system (like index.html) is post-MVP.
 - **Private commitment data**: Do orgs ever contribute non-public commitment data, or is AWC purely ingestive?
 

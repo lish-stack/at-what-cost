@@ -82,6 +82,7 @@ def serialize_commitment(c: dict, include_events: bool = False) -> dict:
 
     result = {
         "id": c["id"],
+        "company_id": c.get("company_id"),
         "company": c.get("companies"),  # joined from Supabase select
         "commitment_type": c.get("commitment_type"),
         "commitment_text": c.get("commitment_text"),
