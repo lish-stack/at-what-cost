@@ -381,6 +381,117 @@ def process_deadlines():
     }
 
 
+# ─── Public: Campaigns & Action Scripts ─────────────────────
+
+@app.get("/companies/{company_id}/campaigns")
+def get_campaigns(company_id: str):
+    db = get_db()
+    res = (
+        db.table("campaigns")
+        .select("*")
+        .eq("company_id", company_id)
+        .eq("is_active", True)
+        .order("created_at")
+        .execute()
+    )
+    return res.data
+
+
+@app.get("/commitments/{commitment_id}/action-script")
+def get_action_script(commitment_id: str, type: str = "email"):
+    db = get_db()
+    res = (
+        db.table("action_scripts")
+        .select("*")
+        .eq("commitment_id", commitment_id)
+        .eq("script_type", type)
+        .order("generated_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return res.data[0] if res.data else None
+
+
+@app.post("/commitments/{commitment_id}/action-script")
+def generate_action_script(commitment_id: str, type: str = "email"):
+    import os, requests as req
+    db = get_db()
+
+    # Return cached script if available
+    cached = (
+        db.table("action_scripts")
+        .select("*")
+        .eq("commitment_id", commitment_id)
+        .eq("script_type", type)
+        .order("generated_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if cached.data:
+        return cached.data[0]
+
+    # Fetch commitment details
+    c_res = (
+        db.table("commitments")
+        .select("*, companies(name, website)")
+        .eq("id", commitment_id)
+        .single()
+        .execute()
+    )
+    if not c_res.data:
+        raise HTTPException(status_code=404, detail="Commitment not found")
+    c = c_res.data
+    company_name = (c.get("companies") or {}).get("name", "this company")
+
+    days = compute_days_remaining(c.get("deadline_date"))
+    phase = derive_lifecycle_phase(days, c.get("current_status", "unknown"))
+    overdue_note = f" — {abs(days)} days overdue" if days is not None and days < 0 else ""
+    commitment_desc = c.get("commitment_type", "animal welfare commitment").replace("_", " ")
+
+    if type == "email":
+        prompt = (
+            f"{company_name} made a public commitment to {commitment_desc} "
+            f"by {c.get('deadline_date', 'their stated deadline')}. "
+            f"They are currently {phase.replace('_', ' ')}{overdue_note}.\n\n"
+            f"Their public commitment: \"{c.get('commitment_text', '')}\"\n\n"
+            f"Write a concise, polite but firm email (150-200 words) from a concerned consumer to "
+            f"{company_name}'s leadership urging them to follow through on this commitment. "
+            f"Include a subject line. Write it ready to send — no placeholder text."
+        )
+    else:
+        prompt = (
+            f"{company_name} made a public commitment to {commitment_desc} "
+            f"by {c.get('deadline_date', 'their stated deadline')} and is currently "
+            f"{phase.replace('_', ' ')}{overdue_note}.\n\n"
+            f"Their public commitment: \"{c.get('commitment_text', '')}\"\n\n"
+            f"Write a phone call script (3-5 sentences) for a consumer calling {company_name}'s "
+            f"customer service to express concern and urge follow-through on this commitment. "
+            f"Include what to say when someone answers. Keep it calm, clear, and direct."
+        )
+
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    model = os.getenv("LLM_MODEL", "anthropic/claude-haiku-4-5")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="LLM not configured")
+
+    resp = req.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={"model": model, "messages": [{"role": "user", "content": prompt}]},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    script_text = resp.json()["choices"][0]["message"]["content"].strip()
+
+    db.table("action_scripts").insert({
+        "commitment_id": commitment_id,
+        "script_type": type,
+        "script_text": script_text,
+    }).execute()
+
+    return {"commitment_id": commitment_id, "script_type": type, "script_text": script_text}
+
+
 # ─── Open Paws Trigger ──────────────────────────────────────
 
 def _trigger_open_paws(company_id: str, org_id: str) -> None:

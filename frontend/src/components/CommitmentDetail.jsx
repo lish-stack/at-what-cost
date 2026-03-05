@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import LifecycleBadge from "./LifecycleBadge";
+import TakeAction from "./TakeAction";
 
 export default function CommitmentDetail() {
   const { id } = useParams();
@@ -113,6 +114,8 @@ export default function CommitmentDetail() {
           ))}
         </div>
       )}
+
+      <TakeAction commitment={commitment} />
     </div>
   );
 }

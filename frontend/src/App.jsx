@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import CommitmentList from "./components/CommitmentList";
+import HomePage from "./components/HomePage";
 import CommitmentDetail from "./components/CommitmentDetail";
 import CompanyList from "./components/CompanyList";
 import CompanyDetail from "./components/CompanyDetail";
@@ -14,7 +14,7 @@ export default function App() {
           <NavBar />
           <div style={styles.container}>
             <Routes>
-              <Route path="/" element={<CommitmentList />} />
+              <Route path="/" element={<HomePage />} />
               <Route path="/commitments/:id" element={<CommitmentDetail />} />
               <Route path="/companies" element={<CompanyList />} />
               <Route path="/companies/:name" element={<CompanyDetail />} />
@@ -40,7 +40,7 @@ function NavBar() {
     <div style={styles.nav}>
       <Link to="/" style={styles.logo}>At What Cost</Link>
       <div style={styles.navLinks}>
-        <Link to="/" style={styles.navLink}>Commitments</Link>
+        <Link to="/" style={styles.navLink}>Home</Link>
         <Link to="/companies" style={styles.navLink}>Brands</Link>
       </div>
       <div style={styles.authArea}>

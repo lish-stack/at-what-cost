@@ -104,10 +104,11 @@ Required API keys: CourtListener, LegiScan, Serper, Jina AI, OpenRouter.
 | Data | Visible To | Stored In |
 |------|-----------|-----------|
 | Commitments, scores, basic company info | Everyone | `companies`, `commitments` tables |
+| Active org campaigns (GoCageFree, MFA, AE, etc.) | Everyone | `campaigns` (public read) |
+| Generated action scripts | Everyone | `action_scripts` (public read, cached) |
 | OSINT reports, court cases, legislation | Org users only | `company_reports` (RLS: org_id match) |
 | Saved company lists | Org users only | `org_saved_companies` (RLS) |
 | Decision-maker contacts | Org users only | `decision_makers` (RLS) |
-| Org campaign data | Org users only | `campaigns` (RLS) |
 
 Auth: Supabase Auth handles login, roles (`public`, `org`), and session management. Orgs can hold long-lived API keys for programmatic/n8n access.
 
@@ -220,6 +221,8 @@ source_type_enum: 'report' | 'news' | 'company_statement'
 - **commitments** — id, company_id, commitment_type, public_statement_url, commitment_text, announced_date, deadline_date, current_status, created_at
 - **compliance_events** — id, commitment_id, event_type, event_date, status, created_at
 - **evidence** — id, commitment_id, source_url, source_type, summary, created_at
+- **campaigns** — id, company_id, org_name, campaign_url, campaign_title, is_active, created_at *(public read)*
+- **action_scripts** — id, commitment_id, script_type (email|phone), script_text, generated_at *(public read, cached)*
 - **decision_makers** — id, company_id, name, role, contact_url, created_at *(org-only via RLS)*
 - **company_reports** — id, company_id, report_json, generated_at, org_id *(org-only via RLS)*
 - **org_saved_companies** — org_id, company_id *(org-only via RLS)*
@@ -235,7 +238,17 @@ source_type_enum: 'report' | 'news' | 'company_statement'
 | POST | `/commitments` | Create (upserts company, anchors event) |
 | POST | `/commitments/{id}/events` | Add manual compliance event |
 | POST | `/commitments/{id}/evidence` | Attach evidence source |
+| GET | `/commitments/{id}/action-script?type=email\|phone` | Return cached generated script |
+| POST | `/commitments/{id}/action-script?type=email\|phone` | Generate + cache LLM script (OpenRouter) |
+| GET | `/companies/{id}/campaigns` | Active org campaigns for a company |
+| GET | `/org/saved-companies` | Org's saved companies with commitments |
+| POST | `/org/saved-companies/{id}` | Save company + trigger Open Paws |
+| DELETE | `/org/saved-companies/{id}` | Unsave company |
+| GET | `/org/companies/{id}/report` | OSINT report (org-only) |
+| GET | `/org/companies/{id}/notes` | Org notes (org-only) |
+| PUT | `/org/companies/{id}/notes` | Upsert org notes |
 | POST | `/internal/process-deadlines` | n8n trigger — auto lifecycle events *(deprioritized)* |
+| POST | `/internal/reports` | Receive Open Paws report from n8n |
 
 ---
 
@@ -243,11 +256,18 @@ source_type_enum: 'report' | 'news' | 'company_statement'
 
 ```
 components/
+  HomePage.jsx          — stats, urgent actions, spotlight; org view scoped to saved companies
   CommitmentCard.jsx
-  CommitmentDetail.jsx
+  CommitmentDetail.jsx  — includes TakeAction at bottom
   CommitmentList.jsx
-  LifecycleBadge.jsx
-App.jsx
+  CompanyList.jsx       — brand directory, search, groups by company
+  CompanyCard.jsx       — per-brand card with worst lifecycle phase
+  CompanyDetail.jsx     — all commitments for a company + OrgPanel
+  LifecycleBadge.jsx    — handles all backend phases (compliant, at_risk, overdue, unknown)
+  TakeAction.jsx        — campaigns first; generated email/phone script as fallback
+  OrgPanel.jsx          — 6 section skeletons (Open Paws data when available)
+  AuthPage.jsx
+App.jsx                 — routes: / /commitments/:id /companies /companies/:name /auth
 ```
 
 
@@ -272,7 +292,7 @@ awc.masonstahl.com            → Cloudflare Tunnel → NAS port 8001 (Inoreader
 - `POST /internal/process-deadlines` automation trigger
 - n8n daily cron wired to deadline processor
 - Bug fixes: 404 handling, lifecycle deduplication, compliant status respected
-- RSS webhook pipeline (Inoreader → Claude Haiku → JSON)
+- RSS webhook pipeline (Inoreader → OpenRouter → JSON)
 - Supabase schema + RLS
 - Backend API (FastAPI + Supabase)
 - Scraping pipeline (Inoreader → Jina → OpenRouter → Supabase)
@@ -287,13 +307,16 @@ awc.masonstahl.com            → Cloudflare Tunnel → NAS port 8001 (Inoreader
 - Nav bar — auth state (email, Org badge, Sign Out); `/auth` route
 - Inoreader pipeline live — Cloudflare Tunnel (awc-dev.masonstahl.com → port 8001); Inoreader rule triggers `POST /webhook/inoreader`; pipeline tested end-to-end with live article
 - `VITE_API_URL` env var — all `localhost:8000` hardcodes replaced; dev=`http://localhost:8000`, prod=`https://api.watchdog.masonstahl.com`
+- Home page — public: urgent actions (overdue/at_risk), global stats (companies, total, % compliant), spotlight (fully compliant companies); org view scoped to saved companies with banner
+- LifecycleBadge — updated to handle all backend phases (`compliant`, `at_risk`, `unknown`)
+- Take Action — `campaigns` + `action_scripts` tables; `GET /companies/{id}/campaigns` + `GET|POST /commitments/{id}/action-script`; `TakeAction.jsx` at bottom of CommitmentDetail; shows org campaigns first (additive), falls back to LLM-generated email/phone script with copy button; scripts cached in Supabase
 
 ### Next Up
-- Open Paws API integration (n8n webhook trigger wired to `POST /org/saved-companies/:id` already exists — needs N8N_OPEN_PAWS_WEBHOOK_URL in .env; waiting on Open Paws API access)
-- Home page — public: urgent companies, global stats, spotlight; org: scoped to saved companies
-- Accountability score on CompanyCard (derived from worstPhase)
+- Accountability score on CompanyCard (derived from worstPhase — label or letter grade)
 - Synology NAS deployment — docker-compose on NAS, Cloudflare Tunnel (watchdog.masonstahl.com → frontend, api.watchdog.masonstahl.com → backend, awc.masonstahl.com → webhook); update backend CORS for production origin
+- Open Paws API integration (n8n webhook trigger wired to `POST /org/saved-companies/:id` already exists — needs N8N_OPEN_PAWS_WEBHOOK_URL in .env; waiting on Open Paws API access)
 - Org onboarding UX — currently manual SQL to upgrade role; decide if self-serve or keep manual for MVP
+- `commitment_type` enum expansion — currently only `cage_free_eggs`; LLM may extract other types that fail silently on insert
 
 ### Deprioritized (not dropped)
 - Time-based notification system (n8n Slack/email on overdue)
@@ -310,6 +333,7 @@ awc.masonstahl.com            → Cloudflare Tunnel → NAS port 8001 (Inoreader
 - **Org onboarding**: Self-serve signup implemented (anyone can create account); role upgrade to 'org' is currently manual SQL. Decide if this stays manual for MVP or needs a request/approval flow.
 - ~~**Score methodology**~~ — MVP approach: derive from worst `lifecycle_phase` across a company's commitments (overdue > at_risk > pre_deadline > compliant). Computed client-side from `GET /commitments` grouped by company. Numeric score system (like index.html) is post-MVP.
 - **Private commitment data**: Do orgs ever contribute non-public commitment data, or is AWC purely ingestive?
+- ~~**Take Action flow**~~ — Resolved: surface org campaigns first (additive, all shown); generated email/phone script as fallback when no campaigns exist.
 
 ---
 
