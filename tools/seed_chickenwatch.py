@@ -33,6 +33,7 @@ COL_DESCRIPTION = 2   # ChickenWatch Description
 COL_COMMIT_DATE = 4   # Commitment Date — "Date(YYYY,M,D)" (month is 0-indexed)
 COL_TIMELINE    = 5   # Timeline — deadline year (float)
 COL_POLICY_LINK = 7   # ChickenWatch Policy Link
+COL_COUNTRY     = 9   # ChickenWatch Country Rollup
 COL_SECTOR      = 10  # Sector
 COL_POLICY_TYPE = 12  # Policy Type — "Cage-Free" | "Broiler"
 COL_CW_OVERVIEW = 18  # CW Policy Overview — drives current_status
@@ -106,7 +107,8 @@ for row in rows:
         continue
 
     industry = sector_to_industry(get_cell(row, COL_SECTOR))
-    companies_to_seed[name] = {"name": name, "industry": industry}
+    country = get_cell(row, COL_COUNTRY)
+    companies_to_seed[name] = {"name": name, "industry": industry, "country": country}
 
     timeline_yr = get_cell(row, COL_TIMELINE)
     commitments_to_seed.append({

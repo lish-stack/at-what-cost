@@ -27,15 +27,19 @@ function getSpotlight(list) {
   const grouped = list.reduce((acc, c) => {
     const name = c.company?.name;
     if (!name) return acc;
-    if (!acc[name]) acc[name] = { company: c.company, worstRank: 0 };
+    if (!acc[name]) acc[name] = { company: c.company, worstRank: 0, latestDeadline: null };
     const rank = PHASE_RANK[c.lifecycle_phase] ?? 0;
     if (rank > acc[name].worstRank) acc[name].worstRank = rank;
+    if (c.deadline_date && (!acc[name].latestDeadline || c.deadline_date > acc[name].latestDeadline)) {
+      acc[name].latestDeadline = c.deadline_date;
+    }
     return acc;
   }, {});
 
   return Object.entries(grouped)
     .filter(([, d]) => d.worstRank === PHASE_RANK.compliant)
-    .map(([name, d]) => ({ name, company: d.company }));
+    .map(([name, d]) => ({ name, company: d.company, latestDeadline: d.latestDeadline }))
+    .sort((a, b) => (b.latestDeadline ?? "").localeCompare(a.latestDeadline ?? ""));
 }
 
 export default function HomePage() {

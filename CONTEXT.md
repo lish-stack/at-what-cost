@@ -313,12 +313,30 @@ awc.masonstahl.com            → Cloudflare Tunnel → NAS port 8001 (Inoreader
 - ChickenWatch seed — `tools/seed_chickenwatch.py` imports Google Sheet via `gviz/tq?tqx=out:json`; seeded 2801 companies + 3298 commitments (cage-free + broiler) from ChickenWatch.org tracker (sheet ID: `1GcOfjaHy0xTPluZKUkxyNH8u0_qE7T6tdUpeUg7GEyI`)
 - `commitment_type_enum` expanded — `broiler_welfare` added via `ALTER TYPE commitment_type_enum ADD VALUE 'broiler_welfare'`
 - `GET /commitments` pagination — loops `.range(offset, offset+999)` to bypass Supabase 1000-row default limit; returns all 3298 commitments
+- `companies` table `country` column — added via `ALTER TABLE companies ADD COLUMN country text`; `tools/update_company_countries.py` backfills existing companies from ChickenWatch col 9 (`ChickenWatch Country Rollup`); seed script updated to include country on new inserts
+- Brands page filters — hide compliant (default on), industry dropdown (from data), country dropdown (splits comma-combined values; auto-appears when data present), sort: Name A-Z / Soonest Deadline / Trending; result count line shows active filters
+- Keeping Their Word ordering — sorted by most recent `deadline_date` among compliant commitments (most recently fulfilled at top)
 
 ### Next Up
-- Accountability score on CompanyCard (derived from worstPhase — label or letter grade)
+**Highest priority:**
+- **Open Paws API** — trigger manually for select companies (Marriott, McDonald's etc.); verify `POST /internal/reports` receives and stores report_json; verify OrgPanel renders all 6 sections from report data. Needs: Open Paws endpoint URL, auth, request/response format.
+
+**UI polish (current sprint):**
+- Date formatting on cards — human-readable deadline (e.g. "Dec 31 2025") + days overdue on CommitmentCard
+- Action nudge text on cards — e.g. "Send a pre-written email →" CTA inline on CommitmentCard
+- Desktop responsive layout — wider breakpoints, sidebar or multi-column grid
+- Company sustainability score on CompanyCard — 1–5 star rating across dimensions (welfare commitment, trust/compliance history); replaces or supplements worst `lifecycle_phase` badge
+- Home page impact tracker — this month vs. all time stats, month-over-month delta (↑↓), counters for: active campaigns, commitments altered, companies removed/contradicted; requires tracking `compliance_events` over time
+
+**Infrastructure:**
 - Synology NAS deployment — docker-compose on NAS, Cloudflare Tunnel (watchdog.masonstahl.com → frontend, api.watchdog.masonstahl.com → backend, awc.masonstahl.com → webhook); update backend CORS for production origin
-- Open Paws API integration (n8n webhook trigger wired to `POST /org/saved-companies/:id` already exists — needs N8N_OPEN_PAWS_WEBHOOK_URL in .env; waiting on Open Paws API access)
 - Org onboarding UX — currently manual SQL to upgrade role; decide if self-serve or keep manual for MVP
+- Trending sort — currently uses commitment count as proxy; replace with `action_scripts` count per company (already in DB) or page view tracking
+
+**Not yet addressed (worth flagging):**
+- OrgPanel rendering — 6 section skeletons exist but rendering of actual Open Paws `report_json` fields not yet wired; depends on seeing real report shape from Open Paws
+- ChickenWatch data refresh — seed is a point-in-time snapshot; no auto-refresh when ChickenWatch updates. Post-MVP: scheduled re-seed or delta import.
+- Rate limiting / auth on internal endpoints — `POST /internal/reports` and `POST /internal/process-deadlines` are unauthenticated; fine for MVP but worth a shared secret before public deploy
 
 ### Deprioritized (not dropped)
 - Time-based notification system (n8n Slack/email on overdue)

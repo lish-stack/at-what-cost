@@ -111,7 +111,7 @@ def list_commitments():
     while True:
         res = (
             db.table("commitments")
-            .select("*, companies(name, website, industry)")
+            .select("*, companies(name, website, industry, country)")
             .range(offset, offset + 999)
             .execute()
         )
@@ -127,7 +127,7 @@ def get_commitment(commitment_id: str):
     db = get_db()
     res = (
         db.table("commitments")
-        .select("*, companies(name, website, industry), compliance_events(*), evidence(*)")
+        .select("*, companies(name, website, industry, country), compliance_events(*), evidence(*)")
         .eq("id", commitment_id)
         .single()
         .execute()
