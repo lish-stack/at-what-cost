@@ -190,11 +190,11 @@ Webhook → webhook_listener.py
 1. Jina AI Reader fetches full article (r.jina.ai/{url})
    — handles JS-rendered pages, returns clean markdown
    — same Jina key already used by Open Paws
-2. Claude Haiku → structured extraction + relevance score
+2. OpenRouter → structured extraction + relevance score
 3. Relevance score >= 50 + is_new → store to Supabase
 ```
 
-**On filtering**: Inoreader keyword rules are the free gate — no LLM runs until a rule matches. Haiku's relevance score (≥50) is the second gate, catching noise that slips through. No LLM pre-filter needed before Inoreader; tightening keyword combinations is more cost-effective.
+**On filtering**: Inoreader keyword rules are the free gate — no LLM runs until a rule matches. OpenRouter's relevance score (≥50) is the second gate, catching noise that slips through. No LLM pre-filter needed before Inoreader; tightening keyword combinations is more cost-effective.
 
 ### LLM Extracts
 - Company (name, website, industry)
@@ -249,6 +249,15 @@ components/
   LifecycleBadge.jsx
 App.jsx
 ```
+
+
+## Hosting Architecture
+
+'''
+watchdog.masonstahl.com       → Cloudflare Tunnel → NAS port 3000 (frontend)
+api.watchdog.masonstahl.com   → Cloudflare Tunnel → NAS port 8000 (backend)
+awc.masonstahl.com            → Cloudflare Tunnel → NAS port 8001 (Inoreader webhook)
+'''
 
 ---
 
