@@ -210,7 +210,7 @@ Webhook → webhook_listener.py
 
 ### Enums
 ```sql
-commitment_type_enum: 'cage_free_eggs'
+commitment_type_enum: 'cage_free_eggs' | 'broiler_welfare'
 compliance_status_enum: 'compliant' | 'partial' | 'non_compliant' | 'unknown'
 event_type_enum: 'pre_deadline' | 'deadline' | 'post_deadline'
 source_type_enum: 'report' | 'news' | 'company_statement'
@@ -310,13 +310,15 @@ awc.masonstahl.com            → Cloudflare Tunnel → NAS port 8001 (Inoreader
 - Home page — public: urgent actions (overdue/at_risk), global stats (companies, total, % compliant), spotlight (fully compliant companies); org view scoped to saved companies with banner
 - LifecycleBadge — updated to handle all backend phases (`compliant`, `at_risk`, `unknown`)
 - Take Action — `campaigns` + `action_scripts` tables; `GET /companies/{id}/campaigns` + `GET|POST /commitments/{id}/action-script`; `TakeAction.jsx` at bottom of CommitmentDetail; shows org campaigns first (additive), falls back to LLM-generated email/phone script with copy button; scripts cached in Supabase
+- ChickenWatch seed — `tools/seed_chickenwatch.py` imports Google Sheet via `gviz/tq?tqx=out:json`; seeded 2801 companies + 3298 commitments (cage-free + broiler) from ChickenWatch.org tracker (sheet ID: `1GcOfjaHy0xTPluZKUkxyNH8u0_qE7T6tdUpeUg7GEyI`)
+- `commitment_type_enum` expanded — `broiler_welfare` added via `ALTER TYPE commitment_type_enum ADD VALUE 'broiler_welfare'`
+- `GET /commitments` pagination — loops `.range(offset, offset+999)` to bypass Supabase 1000-row default limit; returns all 3298 commitments
 
 ### Next Up
 - Accountability score on CompanyCard (derived from worstPhase — label or letter grade)
 - Synology NAS deployment — docker-compose on NAS, Cloudflare Tunnel (watchdog.masonstahl.com → frontend, api.watchdog.masonstahl.com → backend, awc.masonstahl.com → webhook); update backend CORS for production origin
 - Open Paws API integration (n8n webhook trigger wired to `POST /org/saved-companies/:id` already exists — needs N8N_OPEN_PAWS_WEBHOOK_URL in .env; waiting on Open Paws API access)
 - Org onboarding UX — currently manual SQL to upgrade role; decide if self-serve or keep manual for MVP
-- `commitment_type` enum expansion — currently only `cage_free_eggs`; LLM may extract other types that fail silently on insert
 
 ### Deprioritized (not dropped)
 - Time-based notification system (n8n Slack/email on overdue)

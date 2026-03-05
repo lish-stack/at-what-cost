@@ -106,8 +106,20 @@ def serialize_commitment(c: dict, include_events: bool = False) -> dict:
 @app.get("/commitments")
 def list_commitments():
     db = get_db()
-    res = db.table("commitments").select("*, companies(name, website, industry)").execute()
-    return [serialize_commitment(c) for c in res.data]
+    all_rows = []
+    offset = 0
+    while True:
+        res = (
+            db.table("commitments")
+            .select("*, companies(name, website, industry)")
+            .range(offset, offset + 999)
+            .execute()
+        )
+        all_rows.extend(res.data)
+        if len(res.data) < 1000:
+            break
+        offset += 1000
+    return [serialize_commitment(c) for c in all_rows]
 
 
 @app.get("/commitments/{commitment_id}")
