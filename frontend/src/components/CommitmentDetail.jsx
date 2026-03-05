@@ -11,7 +11,7 @@ export default function CommitmentDetail() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch(`http://localhost:8000/commitments/${id}`);
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/commitments/${id}`);
         if (!res.ok) throw new Error("Commitment not found");
         const data = await res.json();
         setCommitment(data);

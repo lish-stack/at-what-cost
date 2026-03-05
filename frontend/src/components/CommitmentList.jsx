@@ -8,7 +8,7 @@ export default function CommitmentList() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch("http://localhost:8000/commitments");
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/commitments`);
         const data = await res.json();
         setCommitments(data);
       } catch (err) {

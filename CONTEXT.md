@@ -273,15 +273,17 @@ App.jsx
 - Supabase service role key + RLS insert policy on companies table fixed
 - Brands/Companies page — CompanyList, CompanyCard, CompanyDetail; groups `GET /commitments` by company client-side; worst `lifecycle_phase` as accountability signal; client-side search; routes `/companies` and `/companies/:name`
 - Org auth layer — Supabase Auth, AuthContext, login/signup page, role fetch from `profiles` table, `user_role_enum` ('public' | 'org')
-- Org panel — OrgPanel component on CompanyDetail (org-only); save/unsave company, internal notes (persisted to Supabase), OSINT report placeholder; `company_id` exposed in `GET /commitments` response
+- Org panel — OrgPanel rebuilt with 6 section skeletons (Commitment & Compliance, Company Structure, Signals & Triggers, People to Target, Legal & Legislative, Internal Notes); skeleton state shows structure before Open Paws data; pending state shows warm placeholder when saved but no report yet
 - Org RLS — policies on `profiles`, `org_saved_companies`, `company_reports`, `org_company_notes`; signup trigger auto-creates profile with 'public' role
 - Nav bar — auth state (email, Org badge, Sign Out); `/auth` route
-
-### In Progress 🔧
-- Wire Inoreader webhooks to hit /webhook/inoreader
+- Inoreader pipeline live — Cloudflare Tunnel (awc-dev.masonstahl.com → port 8001); Inoreader rule triggers `POST /webhook/inoreader`; pipeline tested end-to-end with live article
+- `VITE_API_URL` env var — all `localhost:8000` hardcodes replaced; dev=`http://localhost:8000`, prod=`https://api.watchdog.masonstahl.com`
 
 ### Next Up
-- Open Paws API integration (n8n webhook trigger wired to `POST /org/saved-companies/:id` already exists — needs N8N_OPEN_PAWS_WEBHOOK_URL in .env)
+- Open Paws API integration (n8n webhook trigger wired to `POST /org/saved-companies/:id` already exists — needs N8N_OPEN_PAWS_WEBHOOK_URL in .env; waiting on Open Paws API access)
+- Home page — public: urgent companies, global stats, spotlight; org: scoped to saved companies
+- Accountability score on CompanyCard (derived from worstPhase)
+- Synology NAS deployment — docker-compose on NAS, Cloudflare Tunnel (watchdog.masonstahl.com → frontend, api.watchdog.masonstahl.com → backend, awc.masonstahl.com → webhook); update backend CORS for production origin
 - Org onboarding UX — currently manual SQL to upgrade role; decide if self-serve or keep manual for MVP
 
 ### Deprioritized (not dropped)
