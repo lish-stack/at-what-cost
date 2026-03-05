@@ -69,6 +69,8 @@ export default function OrgPanel({ companyId }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshQueued, setRefreshQueued] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -108,6 +110,14 @@ export default function OrgPanel({ companyId }) {
     setSaving(false);
   }
 
+  async function refreshReport() {
+    setRefreshing(true);
+    const headers = await authHeaders();
+    await fetch(`${API}/org/companies/${companyId}/report/refresh`, { method: "POST", headers });
+    setRefreshing(false);
+    setRefreshQueued(true);
+  }
+
   async function saveNotes() {
     const headers = await authHeaders();
     await fetch(`${API}/org/companies/${companyId}/notes`, {
@@ -128,13 +138,24 @@ export default function OrgPanel({ companyId }) {
     <div style={styles.panel}>
       <div style={styles.panelHeader}>
         <h3 style={styles.panelTitle}>Org Panel</h3>
-        <button
-          style={saved ? styles.btnUnsave : styles.btnSave}
-          onClick={toggleSave}
-          disabled={saving}
-        >
-          {saving ? "..." : saved ? "Unsave" : "Save Company"}
-        </button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          {saved && (
+            <button
+              style={styles.btnRefresh}
+              onClick={refreshReport}
+              disabled={refreshing || refreshQueued}
+            >
+              {refreshing ? "Queuing..." : refreshQueued ? "Queued ✓" : "Refresh Report"}
+            </button>
+          )}
+          <button
+            style={saved ? styles.btnUnsave : styles.btnSave}
+            onClick={toggleSave}
+            disabled={saving}
+          >
+            {saving ? "..." : saved ? "Unsave" : "Save Company"}
+          </button>
+        </div>
       </div>
 
       {!saved && (
@@ -267,6 +288,16 @@ const styles = {
     padding: "8px 16px",
     borderRadius: "8px",
     fontSize: "13px",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+  btnRefresh: {
+    background: "transparent",
+    color: "#b07090",
+    border: "1px solid #e0c8d8",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    fontSize: "12px",
     fontWeight: "600",
     cursor: "pointer",
   },

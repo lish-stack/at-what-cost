@@ -316,10 +316,13 @@ awc.masonstahl.com            → Cloudflare Tunnel → NAS port 8001 (Inoreader
 - `companies` table `country` column — added via `ALTER TABLE companies ADD COLUMN country text`; `tools/update_company_countries.py` backfills existing companies from ChickenWatch col 9 (`ChickenWatch Country Rollup`); seed script updated to include country on new inserts
 - Brands page filters — hide compliant (default on), industry dropdown (from data), country dropdown (splits comma-combined values; auto-appears when data present), sort: Name A-Z / Soonest Deadline / Trending; result count line shows active filters
 - Keeping Their Word ordering — sorted by most recent `deadline_date` among compliant commitments (most recently fulfilled at top)
+- Open Paws integration — `_run_open_paws_org` background task fires when org saves a company; streams NDJSON, parses per-node begin/end markers, stores final `report_json` in `company_reports`; `get_user_db` auth fix (`client.postgrest.auth(jwt)` instead of `client.auth.set_session`); timeout `(30, 3600)` for long-running streams; "Refresh Report" button in OrgPanel triggers `POST /org/companies/{id}/report/refresh`
+- CORS — `main.py` allows both `http://localhost:3000` and `https://watchdog.masonstahl.com`
 
 ### Next Up
 **Highest priority:**
-- **Open Paws API** — trigger manually for select companies (Marriott, McDonald's etc.); verify `POST /internal/reports` receives and stores report_json; verify OrgPanel renders all 6 sections from report data. Needs: Open Paws endpoint URL, auth, request/response format.
+- **Marriott demo data** — create `campaigns` + `action_scripts` tables in Supabase (SQL in plan file); seed 3 Marriott campaign rows (Go Cage Free, MFA, Animal Equality); confirm Open Paws report stored in `company_reports` via `docker logs`
+- **Deployment to watchdog.masonstahl.com** — git push from dev, git pull on NAS, update NAS `.env` (`VITE_API_URL=https://api.watchdog.masonstahl.com`), `docker compose up -d --build`, configure cloudflared on NAS
 
 **UI polish (current sprint):**
 - Date formatting on cards — human-readable deadline (e.g. "Dec 31 2025") + days overdue on CommitmentCard

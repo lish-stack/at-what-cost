@@ -37,5 +37,5 @@ def get_user_db(jwt: str) -> Client:
     Use for: all org panel endpoints, saved companies, notes, reports.
     """
     client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-    client.auth.set_session(jwt, "")
+    client.postgrest.auth(jwt)
     return client

@@ -10,7 +10,7 @@ FastAPI app — Supabase client replaces SQLAlchemy ORM.
 from datetime import date
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import Client
 
@@ -21,7 +21,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://watchdog.masonstahl.com",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -247,24 +250,69 @@ def get_saved_companies(authorization: Optional[str] = Header(None)):
 
 
 @app.post("/org/saved-companies/{company_id}", status_code=201)
-def save_company(company_id: str, authorization: Optional[str] = Header(None)):
-    """
-    Save a company to the org's list.
-    Triggers Open Paws OSINT report generation via n8n webhook.
-    """
+def save_company(
+    company_id: str,
+    background_tasks: BackgroundTasks,
+    authorization: Optional[str] = Header(None),
+):
+    """Save a company and kick off Open Paws OSINT report in the background."""
     jwt, db = require_org(authorization)
     user = db.auth.get_user(jwt).user
 
-    # Save the company
-    db.table("org_saved_companies").insert({
+    db.table("org_saved_companies").upsert({
         "org_id": user.id,
         "company_id": company_id,
     }).execute()
 
-    # Trigger Open Paws via n8n webhook (non-blocking)
-    _trigger_open_paws(company_id, user.id)
+    company = db.table("companies").select("name, website").eq("id", company_id).single().execute().data
+    if company:
+        domain = (company.get("website") or "").replace("https://", "").replace("http://", "").rstrip("/")
+        background_tasks.add_task(_run_open_paws_org, company_id, company["name"], domain, user.id)
 
     return {"message": "Company saved. OSINT report generation started."}
+
+
+@app.post("/org/companies/{company_id}/report/refresh", status_code=202)
+def refresh_company_report(
+    company_id: str,
+    background_tasks: BackgroundTasks,
+    authorization: Optional[str] = Header(None),
+):
+    """Re-trigger Open Paws for a company the org has already saved."""
+    jwt, db = require_org(authorization)
+    user = db.auth.get_user(jwt).user
+
+    company = db.table("companies").select("name, website").eq("id", company_id).single().execute().data
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    domain = (company.get("website") or "").replace("https://", "").replace("http://", "").rstrip("/")
+    background_tasks.add_task(_run_open_paws_org, company_id, company["name"], domain, user.id)
+    return {"status": "refresh_triggered"}
+
+
+@app.post("/org/companies/{company_id}/decision-makers/profile", status_code=202)
+def profile_decision_maker(
+    company_id: str,
+    payload: dict,
+    background_tasks: BackgroundTasks,
+    authorization: Optional[str] = Header(None),
+):
+    """Trigger Open Paws personal profile for a decision-maker."""
+    _, db = require_org(authorization)
+
+    company = db.table("companies").select("name").eq("id", company_id).single().execute().data
+    company_name = company["name"] if company else ""
+
+    background_tasks.add_task(
+        _run_open_paws_personal,
+        company_id,
+        payload.get("first_name", ""),
+        payload.get("last_name", ""),
+        company_name,
+        payload.get("linkedin_url", ""),
+    )
+    return {"status": "profile_triggered"}
 
 
 @app.delete("/org/saved-companies/{company_id}", status_code=204)
@@ -504,30 +552,166 @@ def generate_action_script(commitment_id: str, type: str = "email"):
     return {"commitment_id": commitment_id, "script_type": type, "script_text": script_text}
 
 
-# ─── Open Paws Trigger ──────────────────────────────────────
+# ─── Open Paws Integration ───────────────────────────────────
 
-def _trigger_open_paws(company_id: str, org_id: str) -> None:
+OPEN_PAWS_ORG_URL      = "https://automation.openpaws.ai/webhook/osint-organization-profiling"
+OPEN_PAWS_PERSONAL_URL = "https://automation.openpaws.ai/webhook/osint-personal-profile"
+OPEN_PAWS_REPORT_GOAL  = (
+    "Gather intelligence relevant to animal welfare advocacy: company structure, "
+    "key decision-makers with contact info, legal history, CSR/ESG stance, "
+    "recent news, and any factors useful for campaign pressure."
+)
+
+
+def _parse_open_paws_stream(text: str) -> dict:
     """
-    Fire-and-forget: hit the n8n webhook that kicks off Open Paws.
-    n8n fetches the company details and posts the report back to
-    POST /internal/reports once complete.
+    Open Paws streams NDJSON where each line is {"type": "begin"|"progress"|"end", ...}.
+    We want the "end" chunk which carries the final report data.
+    Falls back through SSE and plain JSON if format differs.
+    """
+    import json
+    text = text.strip()
+
+    # 1. NDJSON — parse all lines, prefer "end" type
+    parsed_lines = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            parsed_lines.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+    if parsed_lines:
+        # Look for explicit "end" chunk
+        for obj in reversed(parsed_lines):
+            if obj.get("type") == "end":
+                return obj
+        # Skip pure control chunks (begin/progress), take last data chunk
+        for obj in reversed(parsed_lines):
+            if obj.get("type") not in ("begin", "progress"):
+                return obj
+        # Fall back to last parsed line
+        return parsed_lines[-1]
+
+    # 2. Plain JSON
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # 3. SSE — last parseable data: line
+    for line in reversed([l[6:] for l in text.splitlines() if l.startswith("data: ")]):
+        try:
+            return json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+    return {"raw": text}
+
+
+def _run_open_paws_org(company_id: str, company_name: str, company_domain: str, org_id: str) -> None:
+    """
+    Background task: POST to Open Paws org profiling, consume the NDJSON stream,
+    parse the result, and store in company_reports.
+    Stream can take 10-30 minutes — timeout is set to 1 hour per read.
+    """
+    import os, json as _json, requests as req
+    api_key = os.getenv("OPEN_PAWS_API_KEY")
+    if not api_key:
+        print(f"[OpenPaws] OPEN_PAWS_API_KEY not set — skipping {company_name}")
+        return
+    print(f"[OpenPaws] Starting report for {company_name}...")
+    try:
+        resp = req.post(
+            OPEN_PAWS_ORG_URL,
+            headers={"Content-Type": "application/json", "key": api_key},
+            json={
+                "companyName": company_name,
+                "companyDomain": company_domain or "",
+                "reportGoal": OPEN_PAWS_REPORT_GOAL,
+            },
+            stream=True,
+            timeout=(30, 3600),  # 30s connect, 60min read per chunk
+        )
+        resp.raise_for_status()
+
+        lines = []
+        for line in resp.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+            lines.append(line)
+            try:
+                obj = _json.loads(line)
+                if obj.get("type") == "end":
+                    node = obj.get("metadata", {}).get("nodeName", "")
+                    if node:
+                        print(f"[OpenPaws] ✓ {node}")
+            except Exception:
+                pass
+
+        report_data = _parse_open_paws_stream("\n".join(lines))
+
+        db = get_db()
+        db.table("company_reports").delete().eq("company_id", company_id).eq("org_id", org_id).execute()
+        db.table("company_reports").insert({
+            "company_id": company_id,
+            "org_id": org_id,
+            "report_json": report_data,
+        }).execute()
+        print(f"[OpenPaws] Report stored for {company_name}")
+    except Exception as e:
+        print(f"[OpenPaws] Error for {company_name}: {e}")
+
+
+def _run_open_paws_personal(
+    company_id: str, first_name: str, last_name: str,
+    company_name: str, linkedin_url: str
+) -> None:
+    """
+    Background task: POST to Open Paws personal profiling for a decision-maker.
+    Stores result in decision_makers table under profile_json.
     """
     import os, requests as req
-    webhook_url = os.getenv("N8N_OPEN_PAWS_WEBHOOK_URL")
-    if not webhook_url:
+    api_key = os.getenv("OPEN_PAWS_API_KEY")
+    if not api_key:
         return
     try:
-        req.post(webhook_url, json={"company_id": company_id, "org_id": org_id}, timeout=5)
-    except Exception:
-        pass  # Non-blocking — report generation failure shouldn't break the save
+        resp = req.post(
+            OPEN_PAWS_PERSONAL_URL,
+            headers={"Content-Type": "application/json", "key": api_key},
+            json={
+                "firstName": first_name,
+                "lastName": last_name,
+                "companyName": company_name,
+                "linkedinURL": linkedin_url or "",
+                "reportGoal": "Find contact information, public statements, and background relevant to animal welfare advocacy.",
+                "companyDomain": company_name,
+            },
+            stream=True,
+            timeout=600,
+        )
+        resp.raise_for_status()
+
+        chunks = []
+        for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
+            if chunk:
+                chunks.append(chunk)
+        profile_data = _parse_open_paws_stream("".join(chunks))
+
+        db = get_db()
+        db.table("decision_makers").update({"profile_json": profile_data}).eq(
+            "company_id", company_id
+        ).eq("name", f"{first_name} {last_name}").execute()
+        print(f"[OpenPaws] Personal profile stored for {first_name} {last_name}")
+    except Exception as e:
+        print(f"[OpenPaws] Personal profile error for {first_name} {last_name}: {e}")
 
 
 @app.post("/internal/reports", status_code=201)
 def receive_open_paws_report(payload: dict):
-    """
-    n8n calls this endpoint once Open Paws finishes.
-    Stores the OSINT report in company_reports.
-    """
+    """Legacy n8n callback — kept for backward compatibility."""
     db = get_db()
     db.table("company_reports").insert({
         "company_id": payload["company_id"],
