@@ -565,14 +565,13 @@ OPEN_PAWS_REPORT_GOAL  = (
 
 def _parse_open_paws_stream(text: str) -> dict:
     """
-    Open Paws streams NDJSON where each line is {"type": "begin"|"progress"|"end", ...}.
-    We want the "end" chunk which carries the final report data.
-    Falls back through SSE and plain JSON if format differs.
+    Open Paws streams NDJSON. Each line is either:
+    - {"type": "begin"|"end", "metadata": {...}} — execution lifecycle events (ignore)
+    - {"report": "<markdown text>"} — final webhook response from Set Output1 node (keep this)
     """
     import json
     text = text.strip()
 
-    # 1. NDJSON — parse all lines, prefer "end" type
     parsed_lines = []
     for line in text.splitlines():
         line = line.strip()
@@ -584,29 +583,26 @@ def _parse_open_paws_stream(text: str) -> dict:
             continue
 
     if parsed_lines:
-        # Look for explicit "end" chunk
+        # Priority 1: line with a "report" key directly
         for obj in reversed(parsed_lines):
-            if obj.get("type") == "end":
+            if "report" in obj:
                 return obj
-        # Skip pure control chunks (begin/progress), take last data chunk
+        # Priority 2: line where "content" is a JSON string containing "report"
+        # e.g. {"type": "item", "content": "{\"report\":\"...\"}"}
         for obj in reversed(parsed_lines):
-            if obj.get("type") not in ("begin", "progress"):
+            if "content" in obj:
+                try:
+                    inner = json.loads(obj["content"])
+                    if "report" in inner:
+                        return inner
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        # Priority 3: any line that isn't a pure begin/end metadata event
+        for obj in reversed(parsed_lines):
+            if set(obj.keys()) - {"type", "metadata"}:
                 return obj
         # Fall back to last parsed line
         return parsed_lines[-1]
-
-    # 2. Plain JSON
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-
-    # 3. SSE — last parseable data: line
-    for line in reversed([l[6:] for l in text.splitlines() if l.startswith("data: ")]):
-        try:
-            return json.loads(line)
-        except json.JSONDecodeError:
-            continue
 
     return {"raw": text}
 
@@ -620,9 +616,9 @@ def _run_open_paws_org(company_id: str, company_name: str, company_domain: str, 
     import os, json as _json, requests as req
     api_key = os.getenv("OPEN_PAWS_API_KEY")
     if not api_key:
-        print(f"[OpenPaws] OPEN_PAWS_API_KEY not set — skipping {company_name}")
+        print(f"[OpenPaws] OPEN_PAWS_API_KEY not set — skipping {company_name}", flush=True)
         return
-    print(f"[OpenPaws] Starting report for {company_name}...")
+    print(f"[OpenPaws] Starting report for {company_name}...", flush=True)
     try:
         resp = req.post(
             OPEN_PAWS_ORG_URL,
@@ -647,11 +643,14 @@ def _run_open_paws_org(company_id: str, company_name: str, company_domain: str, 
                 if obj.get("type") == "end":
                     node = obj.get("metadata", {}).get("nodeName", "")
                     if node:
-                        print(f"[OpenPaws] ✓ {node}")
+                        print(f"[OpenPaws] ✓ {node}", flush=True)
             except Exception:
                 pass
 
         report_data = _parse_open_paws_stream("\n".join(lines))
+        has_report = "report" in report_data
+        preview = str(report_data.get("report", report_data))[:120]
+        print(f"[OpenPaws] Parsed — has_report={has_report} | {preview}", flush=True)
 
         db = get_db()
         db.table("company_reports").delete().eq("company_id", company_id).eq("org_id", org_id).execute()
@@ -660,9 +659,9 @@ def _run_open_paws_org(company_id: str, company_name: str, company_domain: str, 
             "org_id": org_id,
             "report_json": report_data,
         }).execute()
-        print(f"[OpenPaws] Report stored for {company_name}")
+        print(f"[OpenPaws] Report stored for {company_name}", flush=True)
     except Exception as e:
-        print(f"[OpenPaws] Error for {company_name}: {e}")
+        print(f"[OpenPaws] Error for {company_name}: {e}", flush=True)
 
 
 def _run_open_paws_personal(

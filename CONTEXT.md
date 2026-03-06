@@ -316,13 +316,17 @@ awc.masonstahl.com            → Cloudflare Tunnel → NAS port 8001 (Inoreader
 - `companies` table `country` column — added via `ALTER TABLE companies ADD COLUMN country text`; `tools/update_company_countries.py` backfills existing companies from ChickenWatch col 9 (`ChickenWatch Country Rollup`); seed script updated to include country on new inserts
 - Brands page filters — hide compliant (default on), industry dropdown (from data), country dropdown (splits comma-combined values; auto-appears when data present), sort: Name A-Z / Soonest Deadline / Trending; result count line shows active filters
 - Keeping Their Word ordering — sorted by most recent `deadline_date` among compliant commitments (most recently fulfilled at top)
-- Open Paws integration — `_run_open_paws_org` background task fires when org saves a company; streams NDJSON, parses per-node begin/end markers, stores final `report_json` in `company_reports`; `get_user_db` auth fix (`client.postgrest.auth(jwt)` instead of `client.auth.set_session`); timeout `(30, 3600)` for long-running streams; "Refresh Report" button in OrgPanel triggers `POST /org/companies/{id}/report/refresh`
+- Open Paws integration — `_run_open_paws_org` background task fires when org saves a company; streams NDJSON from n8n webhook; `get_user_db` auth fix (`client.postgrest.auth(jwt)`); timeout `(30, 3600)`; "Refresh Report" button in OrgPanel triggers `POST /org/companies/{id}/report/refresh`; `PYTHONUNBUFFERED: "1"` in docker-compose for background thread log visibility
+- Open Paws stream parser — `_parse_open_paws_stream` handles double-wrapped format `{"type":"item","content":"{\"report\":\"...\"}"}` (n8n `respondToWebhook` wraps `Set Output1`'s `{"report":"..."}` in an outer `content` key); Priority 1: direct `report` key; Priority 2: unwrap `content` JSON; Priority 3: any non-metadata line; error detection for LLM context limit exceeded (Marriott fails — too large; mid-size companies like Autogrill work)
+- OrgPanel rendering — `ReportMarkdown` component renders Open Paws OSINT dossier; heuristic header detection (two-pass: pre-pass identifies plain-text section headers by position/length/punctuation heuristics, used when LLM omits `#` prefix); `##` / `**bold**` uppercase labels; `###` subheads; bullet + numbered lists; inline bold/links; `urlLabel()` extracts domain name (e.g. `it.linkedin.com` → "Linkedin →"); Table of Contents auto-generated when 2+ sections (anchor links, indent by level); error banner for context limit failures
 - CORS — `main.py` allows both `http://localhost:3000` and `https://watchdog.masonstahl.com`
+- `campaigns` table — created in Supabase with RLS (public read); seeded 3 Marriott rows: Go Cage Free (`gocagefree.org/marriott`), Mercy For Animals (`act.mercyforanimals.in/stopmarriottcruelty`), Animal Equality (`animalequality.org/act/marriott`)
+- `action_scripts` table — created in Supabase with RLS (public read, cached LLM scripts per commitment)
 
 ### Next Up
-**Highest priority:**
-- **Marriott demo data** — create `campaigns` + `action_scripts` tables in Supabase (SQL in plan file); seed 3 Marriott campaign rows (Go Cage Free, MFA, Animal Equality); confirm Open Paws report stored in `company_reports` via `docker logs`
-- **Deployment to watchdog.masonstahl.com** — git push from dev, git pull on NAS, update NAS `.env` (`VITE_API_URL=https://api.watchdog.masonstahl.com`), `docker compose up -d --build`, configure cloudflared on NAS
+**Deployment (do before losing Supabase dashboard access):**
+- **NAS deployment** — git push → SSH to NAS → `git clone` or `git pull` → create `.env` with `VITE_API_URL=https://api.watchdog.masonstahl.com` + all keys → `docker compose up -d --build` → confirm cloudflared tunnels active (watchdog.masonstahl.com → 3000, api.watchdog.masonstahl.com → 8000, awc.masonstahl.com → 8001)
+- **Rate limiting on internal endpoints** — `POST /internal/reports` and `POST /internal/process-deadlines` are unauthenticated; add a shared secret header check before public deploy
 
 **UI polish (current sprint):**
 - Date formatting on cards — human-readable deadline (e.g. "Dec 31 2025") + days overdue on CommitmentCard
@@ -332,14 +336,12 @@ awc.masonstahl.com            → Cloudflare Tunnel → NAS port 8001 (Inoreader
 - Home page impact tracker — this month vs. all time stats, month-over-month delta (↑↓), counters for: active campaigns, commitments altered, companies removed/contradicted; requires tracking `compliance_events` over time
 
 **Infrastructure:**
-- Synology NAS deployment — docker-compose on NAS, Cloudflare Tunnel (watchdog.masonstahl.com → frontend, api.watchdog.masonstahl.com → backend, awc.masonstahl.com → webhook); update backend CORS for production origin
 - Org onboarding UX — currently manual SQL to upgrade role; decide if self-serve or keep manual for MVP
 - Trending sort — currently uses commitment count as proxy; replace with `action_scripts` count per company (already in DB) or page view tracking
 
 **Not yet addressed (worth flagging):**
-- OrgPanel rendering — 6 section skeletons exist but rendering of actual Open Paws `report_json` fields not yet wired; depends on seeing real report shape from Open Paws
 - ChickenWatch data refresh — seed is a point-in-time snapshot; no auto-refresh when ChickenWatch updates. Post-MVP: scheduled re-seed or delta import.
-- Rate limiting / auth on internal endpoints — `POST /internal/reports` and `POST /internal/process-deadlines` are unauthenticated; fine for MVP but worth a shared secret before public deploy
+- Marriott Open Paws report — Marriott exceeds Gemini 2.5 Flash context limit (~14M tokens of research); no fix on our side. Use mid-size companies for demo. Error shown in OrgPanel.
 
 ### Deprioritized (not dropped)
 - Time-based notification system (n8n Slack/email on overdue)
